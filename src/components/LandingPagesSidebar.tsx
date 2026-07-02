@@ -43,8 +43,8 @@ export function LandingPagesGrid() {
     .sort((a, b) => a.id.localeCompare(b.id));
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 sm:p-6">
-      <div className="mx-auto grid max-w-[1600px] grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+      <div className="grid w-full max-w-5xl grid-cols-3 gap-4">
         {variants.map((v) => (
           <PageTile key={v.id} variant={v} />
         ))}
