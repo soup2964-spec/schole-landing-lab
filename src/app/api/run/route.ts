@@ -1,26 +1,46 @@
 import { NextResponse } from "next/server";
-import { loadRun, visitIndex } from "@/lib/registry";
+import { allVariants, loadRun, visitIndex } from "@/lib/registry";
 import { getComparisonVariants } from "@/lib/deploy/promote";
 import { loadDeployState } from "@/lib/deploy/state";
 import { loadLoopState } from "@/lib/loop/state";
+import { loadExperimentProgress } from "@/lib/loop/experiment-progress";
 
 export async function GET() {
   const run = loadRun();
-  if (!run) {
-    return NextResponse.json({ error: "No experiment run" }, { status: 404 });
-  }
-
-  const lastGen = run.generations[run.generations.length - 1];
   const state = loadLoopState();
   const deploy = loadDeployState();
   const comparison = getComparisonVariants();
+  const progress = loadExperimentProgress();
+  const variants = allVariants();
 
-  return NextResponse.json({
+  const base = {
     runVersion: state.runVersion,
+    experimentHistory: state.experimentHistory ?? [],
+    experimentProgress: progress,
     deployVersion: deploy.deployVersion,
     lastPromotedVariantId: deploy.lastPromotedVariantId,
     deploy,
     comparison,
+    variants,
+  };
+
+  if (!run) {
+    return NextResponse.json({
+      ...base,
+      runId: null,
+      index: {},
+      generations: [],
+      totalVisits: 0,
+      generationCount: 0,
+      variantCount: variants.length,
+      lastGenBest: null,
+    });
+  }
+
+  const lastGen = run.generations[run.generations.length - 1];
+
+  return NextResponse.json({
+    ...base,
     runId: run.id,
     updatedAt: run.createdAt,
     personaSetVersion: run.personaSetVersion,

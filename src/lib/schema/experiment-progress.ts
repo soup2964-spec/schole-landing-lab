@@ -22,4 +22,6 @@ export interface ExperimentProgress {
   startedAt: string | null;
   updatedAt: string | null;
   error: string | null;
+  /** Bred pages revealed so far during the active run (for page comparison grid). */
+  bredVariants?: import("@/lib/schema/page").PageVariant[];
 }

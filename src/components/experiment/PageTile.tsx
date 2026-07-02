@@ -145,6 +145,7 @@ export function NineVariantGrid({
   onSelectVariant,
   compact,
   uniformSize,
+  slotCount = 9,
 }: {
   variants: PageVariant[];
   judgmentsByVariant?: Record<string, VariantJudgment>;
@@ -152,6 +153,7 @@ export function NineVariantGrid({
   onSelectVariant?: (variantId: string) => void;
   compact?: boolean;
   uniformSize?: boolean;
+  slotCount?: number;
 }) {
   const slots = Array.from({ length: 9 }, (_, i) => variants[i] ?? null);
 

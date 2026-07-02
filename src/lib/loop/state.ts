@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 
+import type { PageVariant } from "@/lib/schema/page";
+
 export interface LoopState {
   /** When true, live traffic triggers auto calibrate + re-simulate. */
   autonomous: boolean;
@@ -16,6 +18,15 @@ export interface LoopState {
   lastCalibrationVersion: number;
   lastRunId: string | null;
   syncHistory: { at: string; visitors: number; reason: string }[];
+  /** Snapshots per completed manual experiment (for page comparison by iteration). */
+  experimentHistory: ExperimentHistoryEntry[];
+}
+
+export interface ExperimentHistoryEntry {
+  experimentNumber: number;
+  runId: string;
+  previousVariants: PageVariant[];
+  currentVariants: PageVariant[];
 }
 
 const STATE_PATH = path.join(process.cwd(), "data", "loop-state.json");
@@ -30,6 +41,7 @@ const DEFAULT_STATE: LoopState = {
   lastCalibrationVersion: 0,
   lastRunId: null,
   syncHistory: [],
+  experimentHistory: [],
 };
 
 export function loadLoopState(): LoopState {

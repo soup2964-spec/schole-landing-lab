@@ -4,14 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ExperimentRun, GenerationRun } from "@/lib/schema/experiment";
 import type { VisitIndex } from "@/lib/registry";
 import type { PageVariant } from "@/lib/schema/page";
+import type { ExperimentProgress } from "@/lib/schema/experiment-progress";
+import type { ExperimentHistoryEntry } from "@/lib/loop/state";
 import { CRITERIA } from "@/config/criteria";
 import { buildJudgmentsFromMetrics } from "@/lib/judgment/criteria";
+import { comparisonSnapshotsForIteration, sortGen0Variants } from "@/lib/comparison/snapshots";
 import { ControlCenterView } from "@/components/experiment/ControlCenterView";
 import { ExperimentDetailPanel } from "@/components/experiment/ExperimentDetailPanel";
-import {
-  PageComparisonView,
-  snapshotFromRun,
-} from "@/components/experiment/PageComparisonView";
+import { PageComparisonView } from "@/components/experiment/PageComparisonView";
 import {
   ExperimentSideMenu,
   type WorkbenchView,
@@ -19,6 +19,8 @@ import {
 
 interface RunPayload {
   runVersion: number;
+  experimentHistory?: ExperimentHistoryEntry[];
+  experimentProgress?: ExperimentProgress;
   deployVersion?: number;
   lastPromotedVariantId?: string | null;
   deploy?: {
@@ -90,48 +92,64 @@ export function ExperimentWorkbench({
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [comparisonVariantId, setComparisonVariantId] = useState<string | null>(null);
   const [deployVersion, setDeployVersion] = useState(initialDeployVersion);
-  const [lastPromotedVariantId, setLastPromotedVariantId] = useState<string | null>(null);
-  const [lastDeployReason, setLastDeployReason] = useState<string | null>(null);
-  const [comparisonVariants, setComparisonVariants] = useState<{
-    previous: PageVariant[];
-    current: PageVariant[];
-  } | null>(null);
-  const experimentNumber = Math.max(1, deployVersion || 1);
-  const [iteration, setIteration] = useState(experimentNumber);
+  const [runVersion, setRunVersion] = useState(0);
+  const [experimentHistory, setExperimentHistory] = useState<ExperimentHistoryEntry[]>([]);
+  const [progress, setProgress] = useState<ExperimentProgress | null>(null);
+  const [iteration, setIteration] = useState(1);
 
-  const maxIteration = experimentNumber;
+  const isRunning = progress?.status === "running";
+  const maxIteration = Math.max(
+    1,
+    runVersion,
+    experimentHistory.length,
+    isRunning ? runVersion + 1 : 0
+  );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<RunPayload | null> => {
     try {
       const res = await fetch("/api/run");
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const data = (await res.json()) as RunPayload;
       setVariants(data.variants);
       setVisitIndex(data.index);
+      setRunVersion(data.runVersion ?? 0);
+      setExperimentHistory(data.experimentHistory ?? []);
+      if (data.experimentProgress) setProgress(data.experimentProgress);
       const nextDeploy = data.deployVersion ?? data.deploy?.deployVersion ?? 0;
       setDeployVersion(nextDeploy);
-      setLastPromotedVariantId(
-        data.lastPromotedVariantId ?? data.deploy?.lastPromotedVariantId ?? null
-      );
-      setLastDeployReason(data.deploy?.history?.[0]?.reason ?? null);
-      if (data.comparison) {
-        setComparisonVariants({
-          previous: data.comparison.previous,
-          current: data.comparison.current,
-        });
-      }
       setRun((prev) => runFromPayload(prev, data));
-      const nextExperiment = Math.max(1, nextDeploy || 1);
-      setIteration((i) => Math.min(Math.max(1, i), nextExperiment));
+      setIteration((i) => Math.min(Math.max(1, i), Math.max(1, data.runVersion ?? 1)));
+      return data;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const pollProgress = useCallback(async () => {
+    try {
+      const res = await fetch("/api/control/progress");
+      if (!res.ok) return;
+      setProgress(await res.json());
     } catch {
       /* ignore */
     }
   }, []);
 
   useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
     const t = setInterval(refresh, 30_000);
     return () => clearInterval(t);
   }, [refresh]);
+
+  useEffect(() => {
+    const ms = isRunning ? 800 : 5000;
+    void pollProgress();
+    const t = setInterval(pollProgress, ms);
+    return () => clearInterval(t);
+  }, [isRunning, pollProgress]);
 
   useEffect(() => {
     setIteration((i) => Math.min(Math.max(1, i), maxIteration));
@@ -142,21 +160,25 @@ export function ExperimentWorkbench({
     setActiveView("behavior");
   };
 
+  const gen0Variants = useMemo(() => sortGen0Variants(variants), [variants]);
+
   const judgmentsByVariant = useMemo(() => {
     const lastGen = run?.generations[run.generations.length - 1];
     if (!lastGen?.metrics) return {};
     return buildJudgmentsFromMetrics(lastGen.metrics, lastGen.decisions);
   }, [run]);
 
-  const currentSnapshot = useMemo(() => {
-    const gridVariants = comparisonVariants?.current ?? variants;
-    return snapshotFromRun(deployVersion || iteration, gridVariants, judgmentsByVariant);
-  }, [comparisonVariants, variants, deployVersion, iteration, judgmentsByVariant]);
-
-  const previousSnapshot = useMemo(() => {
-    if (!comparisonVariants?.previous?.length || deployVersion === 0) return null;
-    return snapshotFromRun(Math.max(1, deployVersion - 1), comparisonVariants.previous);
-  }, [comparisonVariants, deployVersion]);
+  const { previous: previousVariants, current: currentVariants } = useMemo(
+    () =>
+      comparisonSnapshotsForIteration(iteration, {
+        gen0Variants,
+        run,
+        runVersion,
+        experimentHistory,
+        progress,
+      }),
+    [iteration, gen0Variants, run, runVersion, experimentHistory, progress]
+  );
 
   const comparisonMeta = CRITERIA.find((c) => c.id === "1");
 
@@ -174,9 +196,13 @@ export function ExperimentWorkbench({
       <div className="min-w-0 flex-1 overflow-y-auto lg:sticky lg:top-[65px] lg:h-[calc(100vh-65px)]">
         {activeView === "control" ? (
           <ControlCenterView
-            onExperimentComplete={() => {
-              void refresh();
-              setActiveView("new");
+            onExperimentComplete={async () => {
+              const data = await refresh();
+              await pollProgress();
+              const rv = data?.runVersion ?? 0;
+              const histLen = data?.experimentHistory?.length ?? 0;
+              setIteration(Math.max(rv, histLen, 1));
+              setActiveView("versions");
             }}
           />
         ) : activeView === "versions" ? (
@@ -188,12 +214,14 @@ export function ExperimentWorkbench({
               </div>
             )}
             <PageComparisonView
-              experimentNumber={experimentNumber}
-              previousSnapshot={previousSnapshot}
-              currentSnapshot={currentSnapshot}
+              experimentNumber={iteration}
+              previousVariants={previousVariants}
+              currentVariants={currentVariants}
+              judgmentsByVariant={judgmentsByVariant}
               selectedVariantId={comparisonVariantId}
               onSelectVariant={setComparisonVariantId}
               onViewBehavior={handleSelectVariant}
+              isRunning={isRunning && iteration === runVersion + 1}
             />
           </div>
         ) : (

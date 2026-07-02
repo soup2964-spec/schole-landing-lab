@@ -5,6 +5,7 @@ import type {
   ExperimentProgress,
   ExperimentStage,
 } from "@/lib/schema/experiment-progress";
+import type { PageVariant } from "@/lib/schema/page";
 
 export type { ExperimentMode, ExperimentProgress, ExperimentStage };
 
@@ -22,6 +23,7 @@ const IDLE: ExperimentProgress = {
   startedAt: null,
   updatedAt: null,
   error: null,
+  bredVariants: [],
 };
 
 /** In-memory copy — kept in sync with disk for poll requests. */
@@ -70,6 +72,7 @@ export class ExperimentProgressReporter {
   private stageBase = 0;
   private stageSpan = 0;
   private startedAt: string;
+  private bredVariants: PageVariant[] = [];
 
   constructor(mode: ExperimentMode, totalGenerations: number) {
     this.mode = mode;
@@ -165,6 +168,16 @@ export class ExperimentProgressReporter {
     );
   }
 
+  addBredVariant(variant: PageVariant) {
+    this.bredVariants = [...this.bredVariants, variant];
+    persist({
+      ...current,
+      bredVariants: [...this.bredVariants],
+      detail: `${this.bredVariants.length} page${this.bredVariants.length === 1 ? "" : "s"} ready`,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   saving(label: string) {
     this.stage = "saving";
     this.publish("saving", 94, label, null);
@@ -207,6 +220,7 @@ export class ExperimentProgressReporter {
       startedAt: this.startedAt,
       updatedAt: new Date().toISOString(),
       error: null,
+      bredVariants: [...this.bredVariants],
     });
   }
 }

@@ -1,4 +1,5 @@
 import { runExperiment, llmExperimentConfig } from "@/lib/evolve/run";
+import { GENERATION_0 } from "@/config/variants";
 import { promoteAndDeploy, type PromoteResult } from "@/lib/deploy/promote";
 import { writeAllVariantHtml } from "@/lib/deploy/write-html";
 import { isLlmConfigured, llmProvider } from "@/lib/llm";
@@ -63,9 +64,22 @@ export async function runManualExperiment(): Promise<ManualExperimentResult> {
     );
 
     const loopState = loadLoopState();
+    const nextRunVersion = loopState.runVersion + 1;
+    const previousVariants =
+      nextRunVersion === 1
+        ? [...GENERATION_0]
+        : [
+            ...(loopState.experimentHistory.find(
+              (e) => e.experimentNumber === nextRunVersion - 1
+            )?.currentVariants ?? GENERATION_0),
+          ];
+    const currentVariants = offspringIds
+      .map((id) => run.variants.find((v) => v.id === id))
+      .filter((v): v is NonNullable<typeof v> => Boolean(v));
+
     const next = {
       ...loopState,
-      runVersion: loopState.runVersion + 1,
+      runVersion: nextRunVersion,
       lastSyncAt: new Date().toISOString(),
       lastRunId: run.id,
       syncHistory: [
@@ -76,6 +90,17 @@ export async function runManualExperiment(): Promise<ManualExperimentResult> {
         },
         ...loopState.syncHistory.slice(0, 19),
       ],
+      experimentHistory: [
+        ...loopState.experimentHistory.filter(
+          (e) => e.experimentNumber !== nextRunVersion
+        ),
+        {
+          experimentNumber: nextRunVersion,
+          runId: run.id,
+          previousVariants,
+          currentVariants,
+        },
+      ].sort((a, b) => a.experimentNumber - b.experimentNumber),
     };
     saveLoopState(next);
 

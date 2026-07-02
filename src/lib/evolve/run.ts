@@ -14,6 +14,7 @@ import { mapPool } from "@/lib/async/pool";
 import { evaluateGeneration } from "./evaluator";
 import { breedVariant, pageSimilarity } from "./optimizer";
 import type { ExperimentProgressReporter } from "@/lib/loop/experiment-progress";
+import { loadSourceBaselineHtml, writeVariantHtml } from "@/lib/deploy/write-html";
 
 interface ReadingTask {
   variant: PageVariant;
@@ -77,10 +78,10 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
   const rng = makeRng(cfg.seed);
   const personaSet = getCalibratedPersonaSet();
   const personas = personaSet.personas;
-
-  const { GENERATION_0 } = await import("@/config/variants");
-  const allVariants: PageVariant[] = [...GENERATION_0];
-  let pool: PageVariant[] = [...GENERATION_0];
+  const baselineHtml = loadSourceBaselineHtml();
+  const baselineVariant = (await import("@/config/variants")).GENERATION_0[0];
+  const allVariants: PageVariant[] = [...(await import("@/config/variants")).GENERATION_0];
+  let pool: PageVariant[] = [...(await import("@/config/variants")).GENERATION_0];
   const generations: GenerationRun[] = [];
 
   for (let gen = 0; gen < cfg.generations; gen++) {
@@ -224,6 +225,8 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
           }
           bredDone++;
           progress?.breedingProgress(bredDone, cfg.offspringPerGeneration);
+          progress?.addBredVariant(child);
+          writeVariantHtml(child, baselineHtml, baselineVariant);
           return child;
         }
       );
