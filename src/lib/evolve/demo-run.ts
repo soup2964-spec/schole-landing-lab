@@ -27,7 +27,7 @@ const DEFAULTS = {
   // baseline needs ~2,000 visits/arm; 4,800/gen across ~6 arms approaches it
   // while keeping run time and stored-sample size reasonable.
   visitsPerGeneration: 4800,
-  generations: 1,
+  generations: 2,
   storedVisitsPerGeneration: 480,
 };
 
