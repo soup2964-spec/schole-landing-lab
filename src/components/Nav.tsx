@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CRITERIA } from "@/config/criteria";
+import { DashboardModeNav } from "@/components/DashboardModeNav";
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function SimulationDashboardShell({ children }: { children: React.ReactNode }) {
   const [active, setActive] = useState("1");
 
   useEffect(() => {
-    const ids = CRITERIA.map((c) => c.id);
-    const sections = ids
-      .map((id) => document.getElementById(`section-${id}`))
-      .filter(Boolean) as HTMLElement[];
+    const sections = CRITERIA.map((c) => document.getElementById(`section-${c.id}`)).filter(
+      Boolean
+    ) as HTMLElement[];
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -31,23 +31,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
-      {/* Top bar — compact, not a marketing hero */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 lg:px-6">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-4 px-4 py-3 lg:px-6">
           <div>
             <Link href="/" className="text-sm font-semibold text-slate-900">
               Scholé <span className="text-schole-primary">Landing Lab</span>
             </Link>
-            <p className="text-[11px] text-slate-500">GTM challenge · single-page experiment report</p>
+            <p className="text-[11px] text-slate-500">Simulation dashboard · 6 GTM criteria</p>
           </div>
-          <div className="hidden text-right text-[11px] text-slate-500 sm:block">
-            6 criteria · scroll or use sidebar
-          </div>
+          <DashboardModeNav />
         </div>
       </header>
 
       <div className="mx-auto flex max-w-[1400px] gap-0 lg:gap-8 lg:px-6">
-        {/* Sticky rubric sidebar — desktop */}
         <aside className="hidden w-72 shrink-0 lg:block">
           <nav className="sticky top-[57px] max-h-[calc(100vh-57px)] overflow-y-auto py-6 pr-2">
             <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-widest text-schole-primary">
@@ -67,13 +63,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     <div className="flex items-start gap-2">
                       <span
                         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                          active === c.id ? "bg-schole-primary text-white" : "bg-slate-200 text-slate-600"
+                          active === c.id
+                            ? "bg-schole-primary text-white"
+                            : "bg-slate-200 text-slate-600"
                         }`}
                       >
                         {c.id}
                       </span>
                       <div>
-                        <div className="text-xs font-semibold leading-snug text-slate-900">{c.title}</div>
+                        <div className="text-xs font-semibold leading-snug text-slate-900">
+                          {c.title}
+                        </div>
                         <div className="mt-0.5 text-[10px] text-slate-500">{c.question}</div>
                       </div>
                     </div>
@@ -84,7 +84,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </nav>
         </aside>
 
-        {/* Mobile criterion chips */}
         <div className="sticky top-[57px] z-40 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-2 lg:hidden">
           {CRITERIA.map((c) => (
             <a
@@ -103,7 +102,38 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
-        Scholé Landing Lab · autonomous landing page experimentation
+        Simulation dashboard · persona agents + bandit + optimizer
+      </footer>
+    </div>
+  );
+}
+
+export function LiveDashboardShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900">
+      <header className="sticky top-0 z-50 border-b border-emerald-200 bg-gradient-to-r from-emerald-50 to-white shadow-sm">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-4 px-4 py-3 lg:px-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <Link href="/live" className="text-sm font-semibold text-slate-900">
+                Scholé <span className="text-schole-primary">Landing Lab</span>
+              </Link>
+              <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Live version
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600">
+              Real traffic · PostHog · GTM · Clarity · auto-calibration loop
+            </p>
+          </div>
+          <DashboardModeNav />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-[1400px] px-4 py-8 lg:px-6">{children}</main>
+
+      <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
+        Live version dashboard · closes the loop between real visitors and simulated personas
       </footer>
     </div>
   );
@@ -114,9 +144,12 @@ export function EmptyRun() {
     <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-10 text-center">
       <h2 className="text-lg font-semibold text-slate-900">No experiment data</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
-        Run <code className="rounded bg-slate-100 px-1.5 py-0.5">npm run demo</code> to populate all
-        six criteria.
+        Run <code className="rounded bg-slate-100 px-1.5 py-0.5">npm run demo</code> to populate the
+        simulation dashboard.
       </p>
     </div>
   );
 }
+
+/** @deprecated use SimulationDashboardShell */
+export const DashboardShell = SimulationDashboardShell;
