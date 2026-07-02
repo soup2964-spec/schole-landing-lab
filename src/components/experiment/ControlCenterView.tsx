@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CRITERIA } from "@/config/criteria";
+import type { ExperimentProgress } from "@/lib/schema/experiment-progress";
+import { ExperimentProgressBar } from "@/components/experiment/ExperimentProgressBar";
 
 interface ControlState {
   autonomous: boolean;
@@ -54,6 +56,7 @@ export function ControlCenterView({
   const [state, setState] = useState<ControlState | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<ExperimentProgress | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +75,23 @@ export function ControlCenterView({
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const pollProgress = useCallback(async () => {
+    try {
+      const res = await fetch("/api/control/progress");
+      if (!res.ok) return;
+      setProgress(await res.json());
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!running) return;
+    void pollProgress();
+    const t = setInterval(pollProgress, 800);
+    return () => clearInterval(t);
+  }, [running, pollProgress]);
 
   const patchControl = async (patch: Partial<Pick<ControlState, "autonomous" | "llmPersonas">>) => {
     setError(null);
@@ -110,12 +130,13 @@ export function ControlCenterView({
   const runExperiment = async () => {
     setRunning(true);
     setError(null);
+    setProgress(null);
 
     const llmMode = state?.llmPersonas ?? false;
     setMessage(
       llmMode
-        ? "LLM personas are reading pages, evaluating results, and breeding new copy. This can take several minutes — keep this tab open."
-        : "Heuristic persona readings and traffic simulation, then LLM evaluator and copywriter — usually a few minutes."
+        ? "LLM personas are reading pages, evaluating results, and breeding new copy."
+        : "Heuristic readings and traffic simulation, then LLM evaluator and copywriter."
     );
 
     try {
@@ -124,6 +145,8 @@ export function ControlCenterView({
       if (!res.ok) {
         throw new Error(body.error ?? "Experiment failed");
       }
+
+      await pollProgress();
 
       const modeLabel =
         body.experimentMode === "full"
@@ -137,6 +160,7 @@ export function ControlCenterView({
       onExperimentComplete?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Experiment failed");
+      await pollProgress();
     } finally {
       setRunning(false);
     }
@@ -223,7 +247,11 @@ export function ControlCenterView({
           )}
         </section>
 
-        {running && (
+        {(running || progress?.status === "running" || progress?.status === "complete") &&
+          progress &&
+          progress.status !== "idle" && <ExperimentProgressBar progress={progress} />}
+
+        {running && !progress && (
           <p className="rounded-xl border border-schole-primary/20 bg-schole-primary/5 px-4 py-3 text-sm text-slate-700">
             {message}
           </p>

@@ -13,6 +13,7 @@ import { analyzeGeneration } from "@/lib/stats/bayes";
 import { mapPool } from "@/lib/async/pool";
 import { evaluateGeneration } from "./evaluator";
 import { breedVariant, pageSimilarity } from "./optimizer";
+import type { ExperimentProgressReporter } from "@/lib/loop/experiment-progress";
 
 interface ReadingTask {
   variant: PageVariant;
@@ -39,6 +40,7 @@ export interface RunConfig {
   /** llm = LLM reads each page as each persona; heuristic = rule-based readings, still uses LLM eval/breed. */
   personaReadingMode?: PersonaReadingMode;
   log?: (msg: string) => void;
+  progress?: ExperimentProgressReporter;
 }
 
 export const DEFAULT_CONFIG: RunConfig = {
@@ -69,6 +71,7 @@ export function llmExperimentConfig(seed: number, log?: RunConfig["log"]): RunCo
  */
 export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<ExperimentRun> {
   const log = cfg.log ?? (() => {});
+  const progress = cfg.progress;
   const readingMode = cfg.personaReadingMode ?? "llm";
   const readingsPerPair = readingMode === "heuristic" ? 1 : cfg.readingsPerPair;
   const rng = makeRng(cfg.seed);
@@ -82,6 +85,7 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
 
   for (let gen = 0; gen < cfg.generations; gen++) {
     log(`=== Generation ${gen}: ${pool.length} variants in pool ===`);
+    progress?.setGeneration(gen, pool.length);
 
     // 1. Persona readings for every (persona, variant) pair.
     const readings = new Map<string, PersonaReading[]>();
@@ -89,14 +93,19 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
     if (readingMode === "heuristic") {
       const total = pool.length * personas.length;
       log(`  ${total} heuristic persona readings...`);
+      progress?.readingsStart(total);
+      let done = 0;
       for (const variant of pool) {
         for (const persona of personas) {
           const key = `${variant.id}|${persona.id}`;
           readings.set(key, [
             heuristicReadPage(persona, variant, cfg.seed + gen * 100 + persona.id.length),
           ]);
+          done++;
+          if (done % 6 === 0 || done === total) progress?.readingsProgress(done, total);
         }
       }
+      progress?.readingsDone();
     } else {
       const readingTasks: ReadingTask[] = [];
       for (const variant of pool) {
@@ -111,6 +120,7 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
       log(
         `  ${readingTasks.length} LLM persona readings (${parallel} parallel, ${readingsPerPair} per pair)...`
       );
+      progress?.readingsStart(readingTasks.length);
 
       let readingsDone = 0;
       const completed = await mapPool(readingTasks, parallel, async (task) => {
@@ -120,11 +130,14 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
           cfg.seed + gen * 1000 + task.readIndex
         );
         readingsDone++;
+        progress?.readingsProgress(readingsDone, readingTasks.length);
         if (readingsDone % parallel === 0 || readingsDone === readingTasks.length) {
           log(`  readings ${readingsDone}/${readingTasks.length}`);
         }
         return { ...task, reading };
       });
+
+      progress?.readingsDone();
 
       for (const { variant, persona, readIndex, reading } of completed) {
         const key = `${variant.id}|${persona.id}`;
@@ -134,6 +147,7 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
     }
 
     // 2. Monte Carlo visits with bandit allocation.
+    progress?.simulating();
     const bandit = new ThompsonBandit(pool.map((v) => v.id));
     const visits: Visit[] = [];
     const allocationHistory: AllocationSnapshot[] = [];
@@ -175,6 +189,7 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
       cfg.seed + gen * 7919
     );
     log(`  evaluating generation ${gen}...`);
+    progress?.evaluating();
     const report = await evaluateGeneration(gen, pool, metrics, visits);
 
     // 4. Breed offspring (skip after the final generation).
@@ -187,7 +202,9 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
 
       const breedParallel = breedConcurrency();
       log(`  breeding ${cfg.offspringPerGeneration} offspring (${breedParallel} parallel)...`);
+      progress?.breedingStart(cfg.offspringPerGeneration);
 
+      let bredDone = 0;
       const bred = await mapPool(
         Array.from({ length: cfg.offspringPerGeneration }, (_, c) => c),
         breedParallel,
@@ -205,6 +222,8 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
             log(`    child ${c} too similar; retrying with crossover...`);
             child = await breedVariant("crossover", top, metrics, report, gen, c);
           }
+          bredDone++;
+          progress?.breedingProgress(bredDone, cfg.offspringPerGeneration);
           return child;
         }
       );
