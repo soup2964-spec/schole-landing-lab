@@ -41,17 +41,19 @@ export function PageShell({
   active,
   title,
   subtitle,
+  wide,
   children,
 }: {
   active: string;
   title: string;
   subtitle: string;
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
       <Nav active={active} />
-      <main className="mx-auto max-w-6xl px-4 py-10">
+      <main className={`mx-auto px-4 py-10 ${wide ? "max-w-7xl" : "max-w-6xl"}`}>
         <h1 className="text-3xl font-bold tracking-tight text-white">{title}</h1>
         <p className="mt-2 max-w-3xl text-slate-400">{subtitle}</p>
         <div className="mt-8">{children}</div>

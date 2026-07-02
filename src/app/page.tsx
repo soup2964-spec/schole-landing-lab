@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/Nav";
-import { CalibrationPanel } from "@/components/CalibrationPanel";
+import { HomeLiveSection } from "@/components/HomeLiveSection";
 import { loadRun } from "@/lib/registry";
 import { PERSONA_SET_V1 } from "@/config/personas";
 
@@ -92,27 +92,25 @@ export default function Home() {
         <p className="mt-2 text-sm leading-relaxed text-slate-300">
           Simulated personas are a <em>prior</em>, not ground truth. They pre-test messaging before
           real traffic arrives, and their priors are designed to be corrected by reality: every
-          page here is instrumented with Microsoft Clarity (per-variant tags, CTA events), and the
-          persona parameters live in a versioned config built to be recalibrated from real
-          behavioral data as it accumulates. The claim is not &quot;LLMs replace users&quot; - it&apos;s
+          page here is instrumented with PostHog, Google Tag Manager, and Microsoft Clarity
+          (per-variant tags, CTA + scroll events), and persona parameters are recalibrated
+          from live traffic via <code className="rounded bg-slate-800 px-1">data/calibration.json</code>. The claim is not &quot;LLMs replace users&quot; - it&apos;s
           that a system which learns from behavior can start learning before launch day.
         </p>
       </div>
 
       {run && lastGen && (
-        <div className="mt-10">
-          <CalibrationPanel
-            simulated={{
-              conversionRate:
-                lastGen.visits.filter((v) => v.converted).length / lastGen.visits.length,
-              bounceRate:
-                lastGen.visits.filter((v) => v.events.some((e) => e.type === "bounce")).length /
-                lastGen.visits.length,
-              avgScrollDepth:
-                lastGen.visits.reduce((s, v) => s + v.scrollDepth, 0) / lastGen.visits.length,
-            }}
-          />
-        </div>
+        <HomeLiveSection
+          simulated={{
+            conversionRate:
+              lastGen.visits.filter((v) => v.converted).length / lastGen.visits.length,
+            bounceRate:
+              lastGen.visits.filter((v) => v.events.some((e) => e.type === "bounce")).length /
+              lastGen.visits.length,
+            avgScrollDepth:
+              lastGen.visits.reduce((s, v) => s + v.scrollDepth, 0) / lastGen.visits.length,
+          }}
+        />
       )}
     </PageShell>
   );

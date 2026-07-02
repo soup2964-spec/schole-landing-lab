@@ -1,5 +1,6 @@
 import type { PageVariant } from "./page";
 import type { Visit, VariantMetrics } from "./events";
+import type { VariantDecision } from "@/lib/stats/bayes";
 
 /** Evaluator agent's structured rubric per variant. Judge/actor separation:
  *  the evaluator never generates pages, it only scores and diagnoses. */
@@ -34,10 +35,15 @@ export interface GenerationReport {
 export interface GenerationRun {
   generation: number;
   variantIds: string[];
+  /** Stored visit traces. May be a stratified sample when totalVisits is larger. */
   visits: Visit[];
+  /** Full simulated visit count (metrics/decisions computed over all of them). */
+  totalVisits?: number;
   metrics: VariantMetrics[];
   allocationHistory: AllocationSnapshot[];
   report: GenerationReport;
+  /** Bayesian promote/kill/collect decisions with credible intervals. */
+  decisions?: VariantDecision[];
   /** Variants bred from this generation's results (appear in gen N+1). */
   offspringIds: string[];
 }

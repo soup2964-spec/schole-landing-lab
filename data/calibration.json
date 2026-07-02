@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "createdAt": "2026-07-02T03:14:36.165Z",
+  "changelog": "Calibrated from posthog (2 visitors, 30d window). CTA propensity ×0.96, patience +2s, skim -0.03.",
+  "real": {
+    "fetchedAt": "2026-07-02T03:14:36.164Z",
+    "source": "posthog",
+    "windowDays": 30,
+    "byVariant": [],
+    "aggregate": {
+      "visitors": 2,
+      "conversionRate": 0.03,
+      "avgScrollDepth": 0.45,
+      "bounceRate": 0.55
+    }
+  },
+  "simulated": {
+    "conversionRate": 0.0375,
+    "bounceRate": 0.9166666666666666,
+    "avgScrollDepth": 0.36334325396825323
+  },
+  "adjustments": {
+    "ctaPropensityMultiplier": 0.96,
+    "patienceSecondsDelta": 2,
+    "skimPropensityDelta": -0.02933333333333333,
+    "variantConversionBias": {}
+  }
+}

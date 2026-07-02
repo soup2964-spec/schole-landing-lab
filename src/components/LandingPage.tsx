@@ -2,6 +2,17 @@
 
 import type { PageVariant, Section } from "@/lib/schema/page";
 import { ClarityVariantTag, trackCtaClick } from "./Clarity";
+import { ScholeBaselineReplica } from "./ScholeBaselineReplica";
+import { useVariantAnalytics } from "./useVariantAnalytics";
+
+function VariantAnalytics({ variant }: { variant: PageVariant }) {
+  useVariantAnalytics({
+    variantId: variant.id,
+    generation: variant.generation,
+    strategy: variant.strategy,
+  });
+  return null;
+}
 
 /**
  * Renders a PageVariant as a real landing page. Every section carries
@@ -10,18 +21,27 @@ import { ClarityVariantTag, trackCtaClick } from "./Clarity";
 
 function CtaButton({
   label,
-  variantId,
+  variant,
   sectionId,
   big,
 }: {
   label: string;
-  variantId: string;
+  variant: PageVariant;
   sectionId: string;
   big?: boolean;
 }) {
   return (
     <button
-      onClick={() => trackCtaClick(variantId, sectionId)}
+      onClick={() =>
+        trackCtaClick(
+          {
+            variantId: variant.id,
+            generation: variant.generation,
+            strategy: variant.strategy,
+          },
+          sectionId
+        )
+      }
       className={`inline-block rounded-full bg-indigo-600 font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:bg-indigo-500 hover:shadow-indigo-500/30 ${
         big ? "px-8 py-4 text-lg" : "px-6 py-3 text-sm"
       }`}
@@ -33,11 +53,11 @@ function CtaButton({
 
 function SectionBlock({
   section,
-  variantId,
+  variant,
   highlight,
 }: {
   section: Section;
-  variantId: string;
+  variant: PageVariant;
   highlight?: boolean;
 }) {
   const s = section;
@@ -60,7 +80,7 @@ function SectionBlock({
             <p className="mx-auto mt-6 max-w-2xl text-lg text-indigo-100/90">{s.body}</p>
             {s.ctaLabel && (
               <div className="mt-8">
-                <CtaButton label={s.ctaLabel} variantId={variantId} sectionId={s.id} big />
+                <CtaButton label={s.ctaLabel} variant={variant} sectionId={s.id} big />
               </div>
             )}
           </div>
@@ -79,7 +99,16 @@ function SectionBlock({
             {s.ctaLabel && (
               <div className="mt-8">
                 <button
-                  onClick={() => trackCtaClick(variantId, s.id)}
+                  onClick={() =>
+                    trackCtaClick(
+                      {
+                        variantId: variant.id,
+                        generation: variant.generation,
+                        strategy: variant.strategy,
+                      },
+                      s.id
+                    )
+                  }
                   className="rounded-full bg-white px-8 py-4 text-lg font-semibold text-indigo-700 shadow-lg transition hover:bg-indigo-50"
                 >
                   {s.ctaLabel}
@@ -257,7 +286,7 @@ function SectionBlock({
             )}
             {s.ctaLabel && (
               <div className="mt-8">
-                <CtaButton label={s.ctaLabel} variantId={variantId} sectionId={s.id} />
+                <CtaButton label={s.ctaLabel} variant={variant} sectionId={s.id} />
               </div>
             )}
           </div>
@@ -273,8 +302,25 @@ export function LandingPage({
   variant: PageVariant;
   highlightSectionId?: string;
 }) {
+  if (variant.strategy === "baseline") {
+    return (
+      <ScholeBaselineReplica
+        variantId={variant.id}
+        generation={variant.generation}
+        highlightSectionId={highlightSectionId}
+        iframeClassName={
+          highlightSectionId !== undefined
+            ? "h-[520px] w-full border-0"
+            : "h-screen w-full border-0"
+        }
+        showLabChrome={highlightSectionId === undefined}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white">
+      <VariantAnalytics variant={variant} />
       <ClarityVariantTag
         variantId={variant.id}
         generation={variant.generation}
@@ -284,7 +330,7 @@ export function LandingPage({
         <SectionBlock
           key={s.id}
           section={s}
-          variantId={variant.id}
+          variant={variant}
           highlight={highlightSectionId === s.id}
         />
       ))}

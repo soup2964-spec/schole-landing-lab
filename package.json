@@ -8,11 +8,16 @@
     "start": "next start",
     "lint": "eslint",
     "experiment": "tsx scripts/run-experiment.ts",
-    "demo": "tsx scripts/generate-demo-run.ts"
+    "demo": "tsx scripts/generate-demo-run.ts",
+    "aa-test": "tsx scripts/aa-test.ts",
+    "prepare:baseline": "tsx scripts/prepare-baseline-html.ts",
+    "predev": "npm run prepare:baseline",
+    "prebuild": "npm run prepare:baseline"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
     "next": "16.2.10",
+    "posthog-js": "^1.396.4",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

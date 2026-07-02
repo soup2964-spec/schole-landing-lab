@@ -1,12 +1,13 @@
 import type { PageVariant } from "@/lib/schema/page";
 import type { Visit } from "@/lib/schema/events";
 import type { ExperimentRun, GenerationRun, AllocationSnapshot } from "@/lib/schema/experiment";
-import { PERSONA_SET_V1 } from "@/config/personas";
+import { getCalibratedPersonaSet } from "@/lib/calibration/store";
 import { readPage, type PersonaReading } from "@/lib/sim/reading";
 import { sampleVisit } from "@/lib/sim/visit";
 import { ThompsonBandit } from "@/lib/sim/bandit";
 import { computeMetrics } from "@/lib/sim/metrics";
 import { makeRng, pickWeighted } from "@/lib/sim/rng";
+import { analyzeGeneration } from "@/lib/stats/bayes";
 import { evaluateGeneration } from "./evaluator";
 import { breedVariant, pageSimilarity } from "./optimizer";
 
@@ -35,7 +36,8 @@ export const DEFAULT_CONFIG: RunConfig = {
 export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<ExperimentRun> {
   const log = cfg.log ?? (() => {});
   const rng = makeRng(cfg.seed);
-  const personas = PERSONA_SET_V1.personas;
+  const personaSet = getCalibratedPersonaSet();
+  const personas = personaSet.personas;
 
   const { GENERATION_0 } = await import("@/config/variants");
   const allVariants: PageVariant[] = [...GENERATION_0];
@@ -79,9 +81,22 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
       }
     }
 
-    // 3. Metrics + evaluator report.
+    // 3. Metrics + Bayesian decisions + evaluator report.
     const metrics = pool.map((v) => computeMetrics(v, visits));
     metrics.sort((a, b) => b.fitness - a.fitness);
+    const baselineId = pool.some((v) => v.id === "v0-baseline")
+      ? "v0-baseline"
+      : metrics[metrics.length - 1].variantId;
+    const decisions = analyzeGeneration(
+      metrics.map((m) => ({
+        id: m.variantId,
+        conversions: m.conversions,
+        visits: m.visits,
+        bounceRate: m.bounceRate,
+      })),
+      baselineId,
+      cfg.seed + gen * 7919
+    );
     log(`  evaluating generation ${gen}...`);
     const report = await evaluateGeneration(gen, pool, metrics, visits);
 
@@ -116,16 +131,21 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
       generation: gen,
       variantIds: pool.map((v) => v.id),
       visits,
+      totalVisits: visits.length,
       metrics,
       allocationHistory,
       report,
+      decisions,
       offspringIds: offspring.map((o) => o.id),
     });
 
-    // Next generation pool: survivors (top performers) + offspring.
-    const rankedIds = metrics.map((m) => m.variantId);
+    // Next generation pool: statistical kill gate, then survivors + offspring.
+    const killed = new Set(
+      decisions.filter((d) => d.status === "killed").map((d) => d.variantId)
+    );
+    const rankedIds = metrics.map((m) => m.variantId).filter((id) => !killed.has(id));
     const survivors = rankedIds
-      .slice(0, Math.max(2, pool.length - cfg.offspringPerGeneration))
+      .slice(0, Math.max(2, pool.length - cfg.offspringPerGeneration - killed.size))
       .map((id) => pool.find((v) => v.id === id)!);
     pool = [...survivors, ...offspring];
   }
@@ -133,7 +153,7 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
   return {
     id: `run-${cfg.seed}`,
     createdAt: new Date().toISOString(),
-    personaSetVersion: PERSONA_SET_V1.version,
+    personaSetVersion: personaSet.version,
     variants: allVariants,
     generations,
   };

@@ -1,9 +1,35 @@
 import { PageShell, EmptyRun } from "@/components/Nav";
 import { loadRun, allVariants } from "@/lib/registry";
+import type { VariantDecision } from "@/lib/stats/bayes";
+import fs from "fs";
+import path from "path";
+
+interface AaTestSummary {
+  ranAt: string;
+  replications: number;
+  visitsPerReplication: number;
+  arms: number;
+  falsePromotionRate: number;
+  falseKillRate: number;
+  avgMaxPBest: number;
+  allocationShareRange: [number, number];
+  verdict: string;
+}
+
+function loadAaTest(): AaTestSummary | null {
+  try {
+    return JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), "data", "aa-test.json"), "utf8")
+    ) as AaTestSummary;
+  } catch {
+    return null;
+  }
+}
 
 export default function ResultsPage() {
   const run = loadRun();
   const variants = allVariants();
+  const aaTest = loadAaTest();
 
   if (!run) {
     return (
@@ -21,11 +47,19 @@ export default function ResultsPage() {
     <PageShell
       active="/results"
       title="Which versions performed better"
-      subtitle="Leaderboard, bandit allocation over time, and evaluator scorecards per generation."
+      subtitle="Bayesian leaderboard with credible intervals and promote/kill decisions, bandit allocation over time, and evaluator scorecards per generation."
     >
+      <StatsMethodCard aaTest={aaTest} />
       {run.generations.map((gen) => (
         <section key={gen.generation} className="mb-12">
-          <h2 className="mb-4 text-lg font-semibold text-white">Generation {gen.generation}</h2>
+          <h2 className="mb-4 text-lg font-semibold text-white">
+            Generation {gen.generation}
+            {gen.totalVisits && (
+              <span className="ml-3 text-xs font-normal text-slate-500">
+                {gen.totalVisits.toLocaleString()} simulated visits
+              </span>
+            )}
+          </h2>
 
           <div className="mb-6 overflow-x-auto rounded-2xl border border-slate-800">
             <table className="w-full text-left text-sm">
@@ -34,21 +68,24 @@ export default function ResultsPage() {
                   <th className="px-4 py-3">Rank</th>
                   <th className="px-4 py-3">Variant</th>
                   <th className="px-4 py-3">Fitness</th>
-                  <th className="px-4 py-3">Conversion</th>
-                  <th className="px-4 py-3">Scroll depth</th>
-                  <th className="px-4 py-3">Bounce</th>
-                  <th className="px-4 py-3">Visits</th>
+                  <th className="px-4 py-3">Conversion [95% CI]</th>
+                  <th className="px-4 py-3">P(best)</th>
+                  <th className="px-4 py-3">Exp. loss</th>
+                  <th className="px-4 py-3">Decision</th>
                 </tr>
               </thead>
               <tbody>
                 {gen.metrics.map((m, i) => {
                   const v = variants.find((x) => x.id === m.variantId);
+                  const d = gen.decisions?.find((x) => x.variantId === m.variantId);
                   return (
                     <tr key={m.variantId} className="border-t border-slate-800">
                       <td className="px-4 py-3 text-slate-500">{i + 1}</td>
                       <td className="px-4 py-3">
                         <div className="font-medium text-white">{v?.name ?? m.variantId}</div>
-                        <div className="font-mono text-xs text-slate-500">{m.variantId}</div>
+                        <div className="font-mono text-xs text-slate-500">
+                          {m.variantId} · {m.visits} visits
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -59,23 +96,33 @@ export default function ResultsPage() {
                       </td>
                       <td className="px-4 py-3 text-slate-300">
                         {(m.conversionRate * 100).toFixed(1)}%
-                        <span className="ml-1 text-xs text-slate-500">
-                          ({m.conversions}/{m.visits})
-                        </span>
+                        {d && (
+                          <span className="ml-1 text-xs text-slate-500">
+                            [{(d.ci95[0] * 100).toFixed(1)}–{(d.ci95[1] * 100).toFixed(1)}%]
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {d ? (
+                          <PBestBar value={d.pBest} />
+                        ) : (
+                          <span className="text-xs text-slate-600">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-400">
-                        {(m.avgScrollDepth * 100).toFixed(0)}%
+                        {d ? `${d.expectedLossPp.toFixed(2)}pp` : "—"}
                       </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        {(m.bounceRate * 100).toFixed(0)}%
+                      <td className="px-4 py-3">
+                        {d ? <DecisionChip decision={d} /> : <span className="text-xs text-slate-600">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-slate-400">{m.visits}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
+
+          {gen.decisions && <DecisionNotes decisions={gen.decisions} />}
 
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
@@ -151,6 +198,166 @@ function Score({ label, value }: { label: string; value: number }) {
       <div className="text-slate-500">{label}</div>
       <div className="font-semibold text-white">{value.toFixed(1)}/10</div>
     </div>
+  );
+}
+
+function PBestBar({ value }: { value: number }) {
+  const pct = value * 100;
+  const color =
+    pct >= 95 ? "bg-emerald-500" : pct >= 70 ? "bg-indigo-500" : "bg-slate-600";
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-800">
+        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs tabular-nums text-slate-400">{pct.toFixed(0)}%</span>
+    </div>
+  );
+}
+
+function DecisionChip({ decision }: { decision: VariantDecision }) {
+  const styles: Record<VariantDecision["status"], string> = {
+    promoted: "bg-emerald-500/15 text-emerald-400",
+    killed: "bg-rose-500/15 text-rose-400",
+    collecting: "bg-slate-700/50 text-slate-400",
+  };
+  const labels: Record<VariantDecision["status"], string> = {
+    promoted: "Promoted",
+    killed: "Killed",
+    collecting: "Collecting",
+  };
+  return (
+    <span
+      className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[decision.status]}`}
+      title={decision.reason}
+    >
+      {labels[decision.status]}
+      {!decision.guardrailBounceOk && " ⚠"}
+    </span>
+  );
+}
+
+function DecisionNotes({ decisions }: { decisions: VariantDecision[] }) {
+  const notable = decisions.filter(
+    (d) => d.status !== "collecting" || !d.guardrailBounceOk
+  );
+  if (!notable.length) {
+    return (
+      <p className="mb-6 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-xs text-slate-500">
+        No variant has cleared the promote gate (P(best) ≥ 95% with expected loss ≤ 0.1pp) or the
+        kill gate (P(beat baseline) &lt; 5%) yet — the honest verdict is &quot;keep collecting
+        evidence.&quot; The bandit continues shifting traffic toward likely winners in the meantime.
+      </p>
+    );
+  }
+  return (
+    <div className="mb-6 space-y-2">
+      {notable.map((d) => (
+        <p
+          key={d.variantId}
+          className={`rounded-xl border px-4 py-3 text-xs ${
+            d.status === "promoted"
+              ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-200/90"
+              : d.status === "killed"
+                ? "border-rose-500/30 bg-rose-500/5 text-rose-200/90"
+                : "border-amber-500/30 bg-amber-500/5 text-amber-200/90"
+          }`}
+        >
+          <code className="mr-2">{d.variantId}</code>
+          {d.reason}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function StatsMethodCard({ aaTest }: { aaTest: AaTestSummary | null }) {
+  return (
+    <section className="mb-10 grid gap-4 lg:grid-cols-2">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          How winners are decided
+        </h2>
+        <ul className="mt-3 space-y-2 text-xs leading-relaxed text-slate-400">
+          <li>
+            <b className="text-slate-300">Bayesian, not t-tests.</b> Thompson-sampled traffic
+            violates fixed-allocation assumptions and the live loop evaluates continuously
+            (peeking). Decisions use the joint Beta posterior: always-valid at any sample size.
+          </li>
+          <li>
+            <b className="text-slate-300">Promote</b> when P(best) ≥ 95% <i>and</i> expected loss
+            ≤ 0.1pp of conversion. <b className="text-slate-300">Kill</b> when P(beat baseline)
+            &lt; 5%. Otherwise: keep collecting.
+          </li>
+          <li>
+            <b className="text-slate-300">Guardrail:</b> a conversion winner is blocked from
+            promotion if its bounce rate exceeds baseline by &gt;10% relative.
+          </li>
+          <li>
+            <b className="text-slate-300">Winner&apos;s-curse control:</b> a Beta(3, 97) prior
+            (anchored on the 3% B2B benchmark) shrinks small-sample estimates; promoted variants
+            are re-validated in the next generation.
+          </li>
+        </ul>
+      </div>
+
+      <div
+        className={`rounded-2xl border p-5 ${
+          aaTest
+            ? aaTest.falsePromotionRate <= 0.1
+              ? "border-emerald-500/30 bg-emerald-500/5"
+              : "border-rose-500/30 bg-rose-500/5"
+            : "border-slate-800 bg-slate-900/60"
+        }`}
+      >
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          A/A pipeline validation
+        </h2>
+        {aaTest ? (
+          <>
+            <p className="mt-3 text-xs leading-relaxed text-slate-400">
+              {aaTest.replications} replications × {aaTest.visitsPerReplication.toLocaleString()}{" "}
+              visits with {aaTest.arms} <i>identical</i> copies of the baseline page. A correct
+              pipeline should find no winners.
+            </p>
+            <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="text-lg font-bold text-white">
+                  {(aaTest.falsePromotionRate * 100).toFixed(0)}%
+                </div>
+                <div className="text-[10px] text-slate-500">false promotions</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-white">
+                  {(aaTest.falseKillRate * 100).toFixed(0)}%
+                </div>
+                <div className="text-[10px] text-slate-500">false kills</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-white">
+                  {(aaTest.allocationShareRange[0] * 100).toFixed(0)}–
+                  {(aaTest.allocationShareRange[1] * 100).toFixed(0)}%
+                </div>
+                <div className="text-[10px] text-slate-500">allocation range (even ≈ 17%)</div>
+              </div>
+            </div>
+            <p
+              className={`mt-3 text-xs font-semibold ${
+                aaTest.falsePromotionRate <= 0.1 ? "text-emerald-400" : "text-rose-400"
+              }`}
+            >
+              {aaTest.verdict}
+            </p>
+          </>
+        ) : (
+          <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            Not run yet. <code className="rounded bg-slate-800 px-1">npm run aa-test</code> runs
+            the full pipeline against six identical pages and reports the false-positive rate —
+            validating the measurement system before trusting any winner it declares.
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 

@@ -42,7 +42,7 @@ export default function ExperimentPage() {
             <b className="text-slate-300">Calibration anchors.</b> Persona parameters are tuned so
             aggregate conversion lands in the 2-5% B2B SaaS benchmark range and bounce behavior
             matches published norms - and they live in a versioned config designed to be
-            recalibrated from real Microsoft Clarity data.
+            recalibrated from real PostHog / GTM traffic via the calibration API.
           </li>
           <li>
             <b className="text-slate-300">Fitness score.</b> 60% conversion rate + 20% scroll depth

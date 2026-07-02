@@ -50,7 +50,7 @@ Generation N+1 …
 
 - **Pages are structured JSON**, rendered by a fixed component library — agents read them cheaply, the optimizer can only emit valid pages, and diffs are precise.
 - **Personas carry objection ledgers** grounded in published 2025–26 buyer research (TalentLMS, G2, Rise Up, eLearning Industry, Docebo).
-- **Microsoft Clarity** tags every variant page (`variant_id`, `generation`, `cta_click`) for sim-to-real calibration.
+- **PostHog + Google Tag Manager + Clarity** tag every variant page (`variant_id`, `cta_click`, `scroll_depth`) for sim-to-real calibration. Live traffic adjusts persona parameters via `POST /api/calibration`.
 
 ## Scripts
 
@@ -63,6 +63,17 @@ Generation N+1 …
 
 ## Deploy
 
-Deploy to Vercel. Set `NEXT_PUBLIC_CLARITY_ID` to instrument real reviewer traffic against simulated predictions.
+Deploy to Vercel. Set `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_GTM_ID`, and server-side `POSTHOG_API_KEY` + `POSTHOG_PROJECT_ID` to instrument live traffic and calibrate simulations.
+
+### Live learning loop
+
+Every variant page sends a session heartbeat + PostHog/GTM events. When **5+ new visitors** arrive (configurable via `LOOP_MIN_NEW_VISITORS`):
+
+1. Pull live metrics from PostHog
+2. Recalibrate persona parameters (`data/calibration.json`)
+3. Re-run the simulation (`data/run.json`)
+4. Dashboard auto-refreshes (polls every 30s)
+
+Vercel Cron hits `/api/cron/sync-loop` every 5 minutes as a backup trigger. Set `CRON_SECRET` in Vercel env vars.
 
 Built for the Scholé AI GTM challenge.

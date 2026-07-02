@@ -4,7 +4,7 @@ import type { PersonaSet } from "@/lib/schema/persona";
  * Persona set v1 - priors sourced from published buyer research, not invented.
  * Sources cited per-attribute in `groundedIn`. This file is the swappable
  * calibration seam: v2+ versions are produced by the calibrator from real
- * Microsoft Clarity data (see lib/calibration).
+ * PostHog / GTM traffic (see lib/calibration).
  *
  * Source key:
  *  [TalentLMS26]  TalentLMS 2026 L&D Benchmark Report

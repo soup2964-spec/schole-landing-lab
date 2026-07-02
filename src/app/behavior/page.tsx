@@ -1,5 +1,5 @@
 import { PageShell, EmptyRun } from "@/components/Nav";
-import { BehaviorExplorer } from "@/components/BehaviorExplorer";
+import { BehaviorDashboardClient } from "@/components/behavior/BehaviorDashboardClient";
 import { loadRun, allVariants, visitIndex } from "@/lib/registry";
 
 export default function BehaviorPage() {
@@ -9,10 +9,18 @@ export default function BehaviorPage() {
   return (
     <PageShell
       active="/behavior"
-      title="Simulated user behavior"
-      subtitle="Aggregate heatmaps show where personas read, skim, and bounce. The replay theater lets you watch any single visit play back on the real page, with the agent's reasoning alongside."
+      wide
+      title="Behavior dashboard"
+      subtitle="Live-updating view of simulated user behavior. As real visitors hit variant pages, the learning loop recalibrates personas and refreshes predictions automatically."
     >
-      {run ? <BehaviorExplorer index={visitIndex(run)} variants={variants} /> : <EmptyRun />}
+      {run ? (
+        <BehaviorDashboardClient
+          initialIndex={visitIndex(run)}
+          initialVariants={variants}
+        />
+      ) : (
+        <EmptyRun />
+      )}
     </PageShell>
   );
 }

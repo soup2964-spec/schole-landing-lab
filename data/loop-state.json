@@ -1,0 +1,20 @@
+{
+  "runVersion": 2,
+  "lastSyncAt": "2026-07-02T03:14:36.210Z",
+  "lastVisitorCount": 2,
+  "heartbeatVisits": 2,
+  "lastCalibrationVersion": 2,
+  "lastRunId": "run-962076165",
+  "syncHistory": [
+    {
+      "at": "2026-07-02T03:14:36.210Z",
+      "visitors": 2,
+      "reason": "auto"
+    },
+    {
+      "at": "2026-07-02T03:10:01.618Z",
+      "visitors": 1,
+      "reason": "auto"
+    }
+  ]
+}
