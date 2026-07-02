@@ -1,84 +1,109 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { CRITERIA } from "@/config/criteria";
 
-const TABS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/variants", label: "1 · Variants" },
-  { href: "/experiment", label: "2 · Method" },
-  { href: "/behavior", label: "3 · Behavior" },
-  { href: "/results", label: "4 · Results" },
-  { href: "/evolution", label: "5 · Evolution" },
-];
+export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const [active, setActive] = useState("1");
 
-export function Nav({ active }: { active: string }) {
+  useEffect(() => {
+    const ids = CRITERIA.map((c) => c.id);
+    const sections = ids
+      .map((id) => document.getElementById(`section-${id}`))
+      .filter(Boolean) as HTMLElement[];
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target.id) {
+          setActive(visible.target.id.replace("section-", ""));
+        }
+      },
+      { rootMargin: "-20% 0px -60% 0px", threshold: [0, 0.25, 0.5] }
+    );
+
+    sections.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <nav className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-4 py-3 lg:max-w-7xl">
-        <Link href="/" className="mr-4 flex-none text-sm font-semibold tracking-tight text-slate-900">
-          Scholé
-          <span className="text-schole-primary"> Landing Lab</span>
-        </Link>
-        {TABS.map((t) => (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={`flex-none rounded-full px-3 py-1.5 text-xs font-medium transition ${
-              active === t.href
-                ? "bg-schole-primary text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            }`}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </div>
-    </nav>
-  );
-}
+    <div className="min-h-screen bg-slate-100 text-slate-900">
+      {/* Top bar — compact, not a marketing hero */}
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 lg:px-6">
+          <div>
+            <Link href="/" className="text-sm font-semibold text-slate-900">
+              Scholé <span className="text-schole-primary">Landing Lab</span>
+            </Link>
+            <p className="text-[11px] text-slate-500">GTM challenge · single-page experiment report</p>
+          </div>
+          <div className="hidden text-right text-[11px] text-slate-500 sm:block">
+            6 criteria · scroll or use sidebar
+          </div>
+        </div>
+      </header>
 
-export function PageShell({
-  active,
-  title,
-  subtitle,
-  wide,
-  hero,
-  children,
-}: {
-  active: string;
-  title: string;
-  subtitle: string;
-  wide?: boolean;
-  hero?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="min-h-screen bg-white text-slate-900">
-      <Nav active={active} />
-      {hero ? (
-        <header className="border-b border-slate-100 bg-gradient-to-b from-schole-surface to-white">
-          <div className={`mx-auto px-4 py-14 lg:px-6 ${wide ? "max-w-7xl" : "max-w-6xl"}`}>
-            <p className="text-xs font-semibold uppercase tracking-widest text-schole-primary">
-              Autonomous landing page evolution
+      <div className="mx-auto flex max-w-[1400px] gap-0 lg:gap-8 lg:px-6">
+        {/* Sticky rubric sidebar — desktop */}
+        <aside className="hidden w-72 shrink-0 lg:block">
+          <nav className="sticky top-[57px] max-h-[calc(100vh-57px)] overflow-y-auto py-6 pr-2">
+            <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-widest text-schole-primary">
+              Required deliverables
             </p>
-            <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-tight tracking-tight text-slate-900 md:text-5xl">
-              {title}
-            </h1>
-            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">{subtitle}</p>
-          </div>
-        </header>
-      ) : (
-        <header className="border-b border-slate-100">
-          <div className={`mx-auto px-4 py-10 lg:px-6 ${wide ? "max-w-7xl" : "max-w-6xl"}`}>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{title}</h1>
-            <p className="mt-2 max-w-3xl text-slate-600">{subtitle}</p>
-          </div>
-        </header>
-      )}
-      <main className={`mx-auto px-4 py-10 lg:px-6 ${wide ? "max-w-7xl" : "max-w-6xl"}`}>
-        {children}
-      </main>
-      <footer className="border-t border-slate-200 bg-schole-surface px-4 py-10 text-center text-xs text-slate-500">
-        Scholé Landing Lab · autonomous landing page experimentation · built for the Scholé AI GTM
-        challenge
+            <ol className="space-y-1">
+              {CRITERIA.map((c) => (
+                <li key={c.id}>
+                  <a
+                    href={`#section-${c.id}`}
+                    className={`block rounded-xl border px-3 py-3 transition ${
+                      active === c.id
+                        ? "border-schole-primary bg-white shadow-md ring-1 ring-schole-primary/20"
+                        : "border-transparent hover:border-slate-200 hover:bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                          active === c.id ? "bg-schole-primary text-white" : "bg-slate-200 text-slate-600"
+                        }`}
+                      >
+                        {c.id}
+                      </span>
+                      <div>
+                        <div className="text-xs font-semibold leading-snug text-slate-900">{c.title}</div>
+                        <div className="mt-0.5 text-[10px] text-slate-500">{c.question}</div>
+                      </div>
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </aside>
+
+        {/* Mobile criterion chips */}
+        <div className="sticky top-[57px] z-40 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-2 lg:hidden">
+          {CRITERIA.map((c) => (
+            <a
+              key={c.id}
+              href={`#section-${c.id}`}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
+                active === c.id ? "bg-schole-primary text-white" : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {c.id}. {c.short}
+            </a>
+          ))}
+        </div>
+
+        <main className="min-w-0 flex-1 px-4 py-6 lg:px-0 lg:py-8">{children}</main>
+      </div>
+
+      <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
+        Scholé Landing Lab · autonomous landing page experimentation
       </footer>
     </div>
   );
@@ -86,14 +111,11 @@ export function PageShell({
 
 export function EmptyRun() {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-schole-surface p-10 text-center">
-      <h2 className="text-lg font-semibold text-slate-900">No experiment run yet</h2>
+    <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-10 text-center">
+      <h2 className="text-lg font-semibold text-slate-900">No experiment data</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
-        Set <code className="rounded bg-slate-100 px-1.5 py-0.5">OPENAI_API_KEY</code> in{" "}
-        <code className="rounded bg-slate-100 px-1.5 py-0.5">.env.local</code> and run{" "}
-        <code className="rounded bg-slate-100 px-1.5 py-0.5">npm run experiment</code> to simulate
-        visits, evaluate variants, and breed new generations. Results are written to{" "}
-        <code className="rounded bg-slate-100 px-1.5 py-0.5">data/run.json</code>.
+        Run <code className="rounded bg-slate-100 px-1.5 py-0.5">npm run demo</code> to populate all
+        six criteria.
       </p>
     </div>
   );
