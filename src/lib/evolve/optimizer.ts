@@ -1,6 +1,7 @@
 import type { PageVariant, Section, ChangelogEntry } from "@/lib/schema/page";
 import type { VariantMetrics } from "@/lib/schema/events";
 import type { GenerationReport } from "@/lib/schema/experiment";
+import { GENERATION_0 } from "@/config/variants";
 import { chatJSONRetry, breederProvider } from "@/lib/llm";
 import { variantNameForBreeding } from "@/lib/variants/display-name";
 
@@ -22,6 +23,23 @@ const VALID_OBJECTIONS = [
   "implementation_burden", "time_cost", "automation_anxiety", "relevance_to_role",
   "compliance_coverage", "credibility", "price_clarity",
 ];
+
+/** Section types the breeder may rewrite; tour and below stay baseline on live pages. */
+const BRED_OWNED_SECTION_TYPES = new Set([
+  "hero",
+  "problem",
+  "how_it_works",
+  "features",
+  "outcomes",
+]);
+
+const FROZEN_BASELINE_SECTION_IDS = new Set([
+  "tour",
+  "proof",
+  "press",
+  "faq",
+  "cta",
+]);
 
 export interface BreedingAngle {
   key: string;
@@ -117,7 +135,7 @@ Hard rules:
 - Stay truthful to the product. Do not invent case studies, customers, or statistics that weren't in the parent pages. You may restructure, reframe, and reprioritize freely.
 - Never use dashes in customer-facing copy: no hyphens (-), en dashes (–), or em dashes (—) in name, thesis, headlines, body, item titles, item details, or ctaLabel. Rephrase with commas, periods, or separate sentences instead (e.g. write "one size fits all" not "one-size-fits-all", "built for teams" not "built for teams — fast").
 - Each offspring in a batch of six must be visually distinct: unique hero headline, unique strategic angle, and at least three sections meaningfully different from every sibling. Never clone a parent's hero or repeat the same headline as another offspring.
-- 6-8 sections. Page must end with a cta section.
+- 4-5 sections only: hero, problem, how_it_works, features, and/or outcomes. Do NOT write product_tour, social_proof, credibility, compliance, faq, cta, pricing, or integration sections. The live page keeps the baseline Framer blocks from "What your Employees Get" downward unchanged.
 - The changelog must have 4-8 entries, each: {what, why, evidence, sourceVariantId?}. Evidence must cite specific numbers or quotes from the report. Use sourceVariantId when importing a section idea from another parent.
 
 Return JSON exactly:
@@ -225,7 +243,7 @@ Produce the JSON for the new variant.`;
       why: stripDashesFromCopy(String(c.why)),
       evidence: stripDashesFromCopy(String(c.evidence)),
     })),
-    sections: sanitizeSections(out.sections, id),
+    sections: finalizeBredSections(sanitizeSections(out.sections, id)),
   };
 }
 
@@ -251,6 +269,16 @@ function sanitizeSections(sections: Section[], variantId: string): Section[] {
         readSeconds: Math.min(25, Math.max(8, Number(s.readSeconds) || 12)),
       } as Section;
     });
+}
+
+/** Keep bred JSON aligned with HTML: LLM owns upper funnel; baseline owns tour and below. */
+function finalizeBredSections(owned: Section[]): Section[] {
+  const baseline = GENERATION_0[0];
+  const upper = owned.filter((s) => BRED_OWNED_SECTION_TYPES.has(s.type));
+  const frozen = baseline.sections.filter((s) =>
+    FROZEN_BASELINE_SECTION_IDS.has(s.id)
+  );
+  return [...upper, ...frozen];
 }
 
 /** Jaccard similarity on headline word sets - crude but effective diversity guard. */
