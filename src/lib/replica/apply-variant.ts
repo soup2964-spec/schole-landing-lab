@@ -15,6 +15,14 @@ export interface HtmlReplacement {
   /** Unique substring of the text to replace (first ~24 chars is enough). */
   anchor: string;
   to: string;
+  /**
+   * Replace from the anchor to the END of the containing text node, not just
+   * the anchor substring. Required for body/item swaps whose anchors are
+   * 40-char prefixes (the snapshot HTML has mojibake characters that prevent
+   * full-string matches); without it the rest of the baseline paragraph leaks
+   * in after the new copy.
+   */
+  fullText?: boolean;
 }
 
 function escapeHtmlText(text: string): string {
@@ -92,7 +100,8 @@ function replaceAllInRange(
   start: number,
   end: number,
   anchor: string,
-  replacement: string
+  replacement: string,
+  fullText = false
 ): string {
   if (!anchor) return html;
   const occ: { idx: number; len: number }[] = [];
@@ -101,8 +110,15 @@ function replaceAllInRange(
     while (k < end) {
       const idx = html.indexOf(f, k);
       if (idx < 0 || idx + f.length > end) break;
-      occ.push({ idx, len: f.length });
-      k = idx + f.length;
+      let len = f.length;
+      if (fullText) {
+        // Swallow the rest of the text node (up to the next tag) so the tail
+        // of the baseline paragraph can't leak in after the new copy.
+        const tagIdx = html.indexOf("<", idx + f.length);
+        if (tagIdx > 0 && tagIdx <= end) len = tagIdx - idx;
+      }
+      occ.push({ idx, len });
+      k = idx + len;
     }
   }
   occ.sort((a, b) => a.idx - b.idx);
@@ -176,15 +192,16 @@ function applyPatchInSection(
   start: number,
   end: number,
   anchor: string,
-  to: string
+  to: string,
+  fullText = false
 ): string {
   const escaped = escapeHtmlText(to);
   if (anchorPresentInRange(html, start, end, anchor)) {
-    return replaceAllInRange(html, start, end, anchor, escaped);
+    return replaceAllInRange(html, start, end, anchor, escaped, fullText);
   }
   const split = findSpanSplit(html, start, end, anchor);
   if (split) {
-    let out = replaceAllInRange(html, start, end, split.suffix, escaped);
+    let out = replaceAllInRange(html, start, end, split.suffix, escaped, fullText);
     out = replaceAllInRange(out, start, end, split.prefix, "");
     return out;
   }
@@ -226,7 +243,7 @@ export function applyReplacements(html: string, replacements: HtmlReplacement[])
       (a, b2) => patchAnchorIndex(out, b.start, b.end, b2.anchor) - patchAnchorIndex(out, b.start, b.end, a.anchor)
     );
     for (const r of ordered) {
-      out = applyPatchInSection(out, b.start, b.end, r.anchor, r.to);
+      out = applyPatchInSection(out, b.start, b.end, r.anchor, r.to, r.fullText);
     }
   }
   return out;
@@ -280,10 +297,11 @@ function pushIfChanged(
   out: HtmlReplacement[],
   sectionId: ReplicaSectionId,
   anchor: string | undefined,
-  to: string | undefined
+  to: string | undefined,
+  fullText = false
 ) {
   if (!anchor || to === undefined || anchor === to) return;
-  out.push({ sectionId, anchor, to });
+  out.push({ sectionId, anchor, to, ...(fullText ? { fullText } : {}) });
 }
 
 function pushBodyChanges(
@@ -300,15 +318,18 @@ function pushBodyChanges(
 
   if (htmlBodies.length > 0) {
     for (let i = 0; i < htmlBodies.length; i++) {
+      // Anchor on a prefix, but replace the WHOLE text node: the snapshot HTML
+      // contains mojibake (U+FFFD) where curly quotes were, so full-string
+      // anchors never match and a prefix-only replace leaks the baseline tail.
       const anchor = htmlBodies[i]!.slice(0, Math.min(htmlBodies[i]!.length, 40));
-      pushIfChanged(out, sectionId, anchor, variantChunks[i] ?? "");
+      pushIfChanged(out, sectionId, anchor, variantChunks[i] ?? "", true);
     }
     return;
   }
 
   const fallback = baseline.body.slice(0, Math.min(baseline.body.length, 40));
   if (html.includes(fallback)) {
-    pushIfChanged(out, sectionId, fallback, variant.body);
+    pushIfChanged(out, sectionId, fallback, variant.body, true);
   }
 }
 
@@ -332,33 +353,63 @@ function pushItemChanges(
 ) {
   const baseItems = baseline.items ?? [];
   const varItems = variant.items ?? [];
-  const htmlItemAnchors = BASELINE_HTML_COPY[sectionId]?.items ?? [];
-  const count = Math.max(baseItems.length, varItems.length, Math.ceil(htmlItemAnchors.length / 2));
+  const htmlAnchors = BASELINE_HTML_COPY[sectionId]?.items ?? [];
+  if (!baseItems.length && !varItems.length) return;
 
+  // HTML anchors are (title, detail) pairs when even-index entries match
+  // baseline item titles (e.g. features); otherwise they are detail-only
+  // fragments (e.g. proof quotes).
+  const paired =
+    htmlAnchors.length >= 2 &&
+    baseItems.some((b) =>
+      htmlAnchors.some((a, i) => i % 2 === 0 && a === b.title)
+    );
+
+  if (paired) {
+    // Anchor on the REAL HTML strings — the config item text can drift from
+    // the snapshot (punctuation, extra sentences), so config anchors miss.
+    const slotCount = Math.floor(htmlAnchors.length / 2);
+    for (let slot = 0; slot < slotCount; slot++) {
+      const titleText = htmlAnchors[slot * 2]!;
+      const detailText = htmlAnchors[slot * 2 + 1]!;
+      const baseIdx = baseItems.findIndex((b) => b.title === titleText);
+      const bi = baseIdx >= 0 ? baseItems[baseIdx] : baseItems[slot];
+      const vi = baseIdx >= 0 ? varItems[baseIdx] : varItems[slot];
+      const titleAnchor = itemAnchor(titleText);
+      const detailAnchor = itemAnchor(detailText);
+
+      if (!vi) {
+        pushIfChanged(out, sectionId, titleAnchor, "", true);
+        pushIfChanged(out, sectionId, detailAnchor, "", true);
+        continue;
+      }
+      if (vi.title !== (bi?.title ?? titleText)) {
+        pushIfChanged(out, sectionId, titleAnchor, vi.title, true);
+      }
+      if (vi.detail !== (bi?.detail ?? detailText)) {
+        pushIfChanged(out, sectionId, detailAnchor, vi.detail, true);
+      }
+    }
+    return;
+  }
+
+  const count = Math.max(baseItems.length, varItems.length, htmlAnchors.length);
   for (let i = 0; i < count; i++) {
     const bi = baseItems[i];
     const vi = varItems[i];
-    const pairedHtmlItems = htmlItemAnchors.length >= count * 2;
-    const detailOnlyHtmlItems =
-      htmlItemAnchors.length > 0 &&
-      htmlItemAnchors.length === count &&
-      !pairedHtmlItems;
-
-    const titleAnchor = pairedHtmlItems
-      ? itemAnchor(bi?.title) ?? itemAnchor(htmlItemAnchors[i * 2])
-      : itemAnchor(bi?.title);
-    const detailAnchor = pairedHtmlItems
-      ? itemAnchor(bi?.detail) ?? itemAnchor(htmlItemAnchors[i * 2 + 1])
-      : itemAnchor(bi?.detail) ?? (detailOnlyHtmlItems ? itemAnchor(htmlItemAnchors[i]) : undefined);
+    const titleAnchor = itemAnchor(bi?.title);
+    const detailAnchor =
+      itemAnchor(bi?.detail) ??
+      (htmlAnchors.length ? itemAnchor(htmlAnchors[i]) : undefined);
 
     if (!vi) {
-      pushIfChanged(out, sectionId, titleAnchor, "");
-      pushIfChanged(out, sectionId, detailAnchor, "");
+      pushIfChanged(out, sectionId, titleAnchor, "", true);
+      pushIfChanged(out, sectionId, detailAnchor, "", true);
       continue;
     }
 
-    if (bi?.title !== vi.title) pushIfChanged(out, sectionId, titleAnchor, vi.title);
-    if (bi?.detail !== vi.detail) pushIfChanged(out, sectionId, detailAnchor, vi.detail);
+    if (bi?.title !== vi.title) pushIfChanged(out, sectionId, titleAnchor, vi.title, true);
+    if (bi?.detail !== vi.detail) pushIfChanged(out, sectionId, detailAnchor, vi.detail, true);
   }
 }
 
@@ -408,7 +459,7 @@ export function extraReplacementsForVariant(variant: PageVariant): HtmlReplaceme
 
   for (const stray of STRAY_BASELINE_FRAGMENTS) {
     if (!patchableSectionIds(variant).includes(stray.sectionId)) continue;
-    out.push({ sectionId: stray.sectionId, anchor: stray.anchor, to: "" });
+    out.push({ sectionId: stray.sectionId, anchor: stray.anchor, to: "", fullText: true });
   }
   return out;
 }

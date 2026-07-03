@@ -163,7 +163,9 @@ export function injectLabGuard(html: string, patches: HtmlReplacement[]): string
 
   // Replace the baseline anchor substring inside a single text node with the
   // variant text. Surgical: preserves sibling text, nested spans, and styling.
-  function replaceInTextNode(node, anchor, to) {
+  // fullText patches (body/item prefix anchors) consume the rest of the text
+  // node so the baseline paragraph tail cannot leak in after the new copy.
+  function replaceInTextNode(node, anchor, to, fullText) {
     if (!node || !node.data || !anchor) return false;
     var forms = [anchor];
     var esc = anchor.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -174,7 +176,9 @@ export function injectLabGuard(html: string, patches: HtmlReplacement[]): string
       var f = forms[i];
       var idx = node.data.indexOf(f);
       if (idx >= 0) {
-        node.data = node.data.slice(0, idx) + to + node.data.slice(idx + f.length);
+        node.data = fullText
+          ? node.data.slice(0, idx) + to
+          : node.data.slice(0, idx) + to + node.data.slice(idx + f.length);
         changed = true;
         break;
       }
@@ -224,7 +228,7 @@ export function injectLabGuard(html: string, patches: HtmlReplacement[]): string
     var changed = false;
     while ((node = walker.nextNode())) {
       if (skippedNode(node)) continue;
-      if (replaceInTextNode(node, p.anchor, p.to)) changed = true;
+      if (replaceInTextNode(node, p.anchor, p.to, p.fullText)) changed = true;
     }
     if (!changed) replaceSplitHeadline(scope, p.anchor, p.to);
   }
