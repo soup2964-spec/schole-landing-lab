@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { labFsWritable } from "@/lib/lab-fs";
 import { getSupabaseAdmin, supabaseConfigured } from "./server";
 
 /** Singleton docs and experiment snapshots — all persisted under lab_documents. */
@@ -111,7 +112,7 @@ export async function setLabDocument<T>(id: string, doc: T): Promise<void> {
       throw new Error(`lab_documents upsert failed (${id}): ${error.message}`);
     }
   }
-  writeFs(id, doc);
+  if (labFsWritable()) writeFs(id, doc);
 }
 
 /** Sync read — filesystem only (build scripts / static generation). */

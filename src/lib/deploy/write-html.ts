@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { GENERATION_0 } from "@/config/variants";
+import { labFsWritable } from "@/lib/lab-fs";
 import type { PageVariant } from "@/lib/schema/page";
 import { buildVariantHtmlReplacements } from "@/lib/replica/apply-variant";
 import { replicaHtmlWithGuard } from "@/lib/replica/paths";
@@ -37,7 +38,6 @@ export function writeVariantHtml(
   baselineHtml: string,
   baselineVariant: PageVariant = GENERATION_0[0]
 ): HtmlWriteResult {
-  fs.mkdirSync(VARIANTS_DIR, { recursive: true });
   const normalized = normalizeVariantForReplica(variant);
   const patchCount = buildVariantHtmlReplacements(baselineVariant, normalized, baselineHtml).length;
 
@@ -49,9 +49,12 @@ export function writeVariantHtml(
     };
   }
 
-  const html = replicaHtmlWithGuard(baselineHtml, normalized);
   const outPath = path.join(VARIANTS_DIR, `${variant.id}.html`);
-  fs.writeFileSync(outPath, html, "utf8");
+  if (labFsWritable()) {
+    const html = replicaHtmlWithGuard(baselineHtml, normalized);
+    fs.mkdirSync(VARIANTS_DIR, { recursive: true });
+    fs.writeFileSync(outPath, html, "utf8");
+  }
 
   return {
     variantId: variant.id,
@@ -71,12 +74,14 @@ export function writeProductionBaseline(
     id: `${mergedBaseline.id}-production`,
   });
   const patchCount = buildVariantHtmlReplacements(baselineVariant, normalized, baselineHtml).length;
-  const html = replicaHtmlWithGuard(baselineHtml, normalized);
-  fs.writeFileSync(BASELINE_HTML_PATH, html, "utf8");
+  if (labFsWritable()) {
+    const html = replicaHtmlWithGuard(baselineHtml, normalized);
+    fs.writeFileSync(BASELINE_HTML_PATH, html, "utf8");
 
-  const productionPath = path.join(VARIANTS_DIR, "production.html");
-  fs.mkdirSync(VARIANTS_DIR, { recursive: true });
-  fs.writeFileSync(productionPath, html, "utf8");
+    const productionPath = path.join(VARIANTS_DIR, "production.html");
+    fs.mkdirSync(VARIANTS_DIR, { recursive: true });
+    fs.writeFileSync(productionPath, html, "utf8");
+  }
 
   return {
     variantId: "production",
@@ -87,10 +92,12 @@ export function writeProductionBaseline(
 
 /** Unpatched lab baseline copy for previews — separate from production index.html. */
 export function writeLabBaselineVariantHtml(): HtmlWriteResult {
-  fs.mkdirSync(VARIANTS_DIR, { recursive: true });
   const baselineHtml = loadSourceBaselineHtml();
   const outPath = path.join(VARIANTS_DIR, `${GENERATION_0[0].id}.html`);
-  fs.writeFileSync(outPath, baselineHtml, "utf8");
+  if (labFsWritable()) {
+    fs.mkdirSync(VARIANTS_DIR, { recursive: true });
+    fs.writeFileSync(outPath, baselineHtml, "utf8");
+  }
   return {
     variantId: GENERATION_0[0].id,
     relativePath: path.relative(ROOT, outPath),

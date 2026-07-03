@@ -9,6 +9,7 @@ import {
   setLabDocument,
 } from "@/lib/supabase/lab-documents";
 import type { ExperimentRun } from "@/lib/schema/experiment";
+import type { ExperimentProgress } from "@/lib/schema/experiment-progress";
 import type { PageVariant } from "@/lib/schema/page";
 import { compactRunForStorage } from "@/lib/evolve/compact-run";
 
@@ -84,6 +85,10 @@ export async function findVariant(id: string): Promise<PageVariant | undefined> 
   const variants = await allVariants();
   const fromActive = variants.find((v) => v.id === id);
   if (fromActive) return fromActive;
+
+  const progress = await getLabDocument<ExperimentProgress>(LAB_DOC.EXPERIMENT_PROGRESS);
+  const fromProgress = progress?.bredVariants?.find((v) => v.id === id);
+  if (fromProgress) return fromProgress;
 
   const numbers = await listExperimentNumbers();
   for (let i = numbers.length - 1; i >= 0; i--) {
