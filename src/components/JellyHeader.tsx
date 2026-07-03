@@ -11,7 +11,7 @@ export function JellyHeader() {
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
       <div className="flex items-center justify-between gap-4 px-6 py-4">
         <Link href="/" className="text-lg font-semibold tracking-tight text-slate-900">
-          Jelly
+          Olébot
         </Link>
 
         <div className="flex rounded-full border border-slate-200 bg-slate-100 p-1">
