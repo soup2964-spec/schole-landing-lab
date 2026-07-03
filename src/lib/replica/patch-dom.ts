@@ -4,9 +4,17 @@ import {
   buildVariantHtmlReplacements,
   type HtmlReplacement,
 } from "./apply-variant";
+import { FROZEN_BASELINE_COPY, FROZEN_FRAMER_NAMES } from "./baseline-copy";
 
 function anchorNeedle(anchor: string): string {
   return anchor.slice(0, Math.min(anchor.length, 28));
+}
+
+function isFrozenElement(el: Element): boolean {
+  const name = el.getAttribute("data-framer-name");
+  if (name && FROZEN_FRAMER_NAMES.has(name)) return true;
+  const text = el.textContent ?? "";
+  return FROZEN_BASELINE_COPY.some((frozen) => text.includes(frozen));
 }
 
 /** Replace every RichTextContainer in the document that contains the anchor. */
@@ -26,6 +34,7 @@ export function replaceRichTextGloballyInDocument(
   let wrotePrimary = false;
 
   for (const el of containers) {
+    if (isFrozenElement(el)) continue;
     const text = el.textContent ?? "";
     if (!text.includes(anchor) && !text.includes(needle)) continue;
 

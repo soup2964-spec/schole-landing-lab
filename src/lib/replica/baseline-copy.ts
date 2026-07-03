@@ -108,6 +108,34 @@ export const STRAY_BASELINE_FRAGMENTS: { sectionId: ReplicaSectionId; anchor: st
   { sectionId: "features", anchor: "You bought the tools" },
 ];
 
+/**
+ * Baseline copy that must never change on bred pages — sublines, trust badges,
+ * secondary CTAs, and text inside animated Framer widgets.
+ */
+export const FROZEN_BASELINE_COPY = [
+  "20 minutes",
+  "Live session with a founder",
+  "Co-Designed and Trusted by leaders in tech, retail, and operations",
+  "Try it now",
+  "Sam, your HR partner",
+  "Ask Olé",
+  "Loved by learners at",
+  "and 100s more",
+] as const;
+
+/** Framer component labels tied to animations/widgets — never replace their text. */
+export const FROZEN_FRAMER_NAMES = new Set([
+  "Comment text",
+  "Logo",
+  "Badge",
+  "Job profile assistant",
+]);
+
+/**
+ * Bred pages: text-only swaps in mapped headline/body slots (hero→features).
+ * Layout, images, animations, and FROZEN_BASELINE_COPY stay identical to schole.ai.
+ */
+
 /** Mid-page copy used by the live site — promoted to hero on v3-problem. */
 export const ADOPTION_GAP_HERO = {
   line1: "Most companies have AI.",

@@ -1,6 +1,8 @@
 import type { PageVariant, Section } from "@/lib/schema/page";
 import {
   BASELINE_HTML_COPY,
+  FROZEN_BASELINE_COPY,
+  FROZEN_FRAMER_NAMES,
   patchableSectionIds,
   REPLICA_SECTION_IDS,
   STRAY_BASELINE_FRAGMENTS,
@@ -40,6 +42,32 @@ function escapeHtmlText(text: string): string {
 
 function anchorNeedle(anchor: string): string {
   return anchor.slice(0, Math.min(anchor.length, 28));
+}
+
+function containerPlainText(html: string, bounds: { start: number; end: number }): string {
+  return html
+    .slice(bounds.start, bounds.end)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function framerNameAt(html: string, containerStart: number): string | null {
+  const tagEnd = html.indexOf(">", containerStart);
+  if (tagEnd < 0) return null;
+  const tag = html.slice(containerStart, tagEnd + 1);
+  return tag.match(/data-framer-name="([^"]*)"/)?.[1] ?? null;
+}
+
+function isFrozenContainer(html: string, bounds: { start: number; end: number }, containerStart: number): boolean {
+  const name = framerNameAt(html, containerStart);
+  if (name && FROZEN_FRAMER_NAMES.has(name)) return true;
+  const plain = containerPlainText(html, bounds);
+  return FROZEN_BASELINE_COPY.some((frozen) => plain.includes(frozen));
+}
+
+function isFrozenAnchor(anchor: string): boolean {
+  return FROZEN_BASELINE_COPY.some((frozen) => anchor.includes(frozen) || frozen.includes(anchor));
 }
 
 /**
@@ -87,7 +115,7 @@ export function replaceRichTextGlobally(
   anchor: string,
   to: string
 ): string {
-  if (!anchor || anchor === to) return html;
+  if (!anchor || anchor === to || isFrozenAnchor(anchor)) return html;
 
   const needle = anchorNeedle(anchor);
   if (!html.includes(needle) && !html.includes(anchor)) return html;
@@ -101,9 +129,23 @@ export function replaceRichTextGlobally(
     if (idx < 0) idx = out.indexOf(needle, searchFrom);
     if (idx < 0) break;
 
+    const containerStart = out.lastIndexOf(
+      'data-framer-component-type="RichTextContainer"',
+      idx
+    );
+    if (containerStart < 0) {
+      searchFrom = idx + Math.max(needle.length, 1);
+      continue;
+    }
+
     const bounds = richTextInnerBounds(out, idx);
     if (!bounds) {
       searchFrom = idx + Math.max(needle.length, 1);
+      continue;
+    }
+
+    if (isFrozenContainer(out, bounds, containerStart)) {
+      searchFrom = bounds.end;
       continue;
     }
 
@@ -250,9 +292,11 @@ export function buildReplacementsForSection(
   sectionId: ReplicaSectionId,
   baseline: Section,
   variant: Section,
-  html: string
+  html: string,
+  opts?: { patchCta?: boolean }
 ): HtmlReplacement[] {
   const out: HtmlReplacement[] = [];
+  const patchCta = opts?.patchCta ?? true;
 
   if (variant.headline !== baseline.headline) {
     const htmlHeadlines = BASELINE_HTML_COPY[sectionId]?.headline;
@@ -275,7 +319,7 @@ export function buildReplacementsForSection(
   pushBodyChanges(out, sectionId, baseline, variant, html);
   pushItemChanges(out, sectionId, baseline, variant);
 
-  if (variant.ctaLabel && variant.ctaLabel !== baseline.ctaLabel) {
+  if (patchCta && variant.ctaLabel && variant.ctaLabel !== baseline.ctaLabel) {
     const ctaAnchor =
       BASELINE_HTML_COPY[sectionId]?.cta ?? baseline.ctaLabel ?? "Book a demo";
     pushIfChanged(out, sectionId, ctaAnchor, variant.ctaLabel);
@@ -306,6 +350,7 @@ export function buildVariantHtmlReplacements(
   const baselineById = new Map(baselineVariant.sections.map((s) => [s.id, s]));
   const replacements: HtmlReplacement[] = [...extraReplacementsForVariant(normalized)];
   const allowed = new Set(patchableSectionIds(normalized));
+  const patchCta = normalized.generation === 0;
 
   for (const section of normalized.sections) {
     const replicaId = section.id as ReplicaSectionId;
@@ -317,13 +362,15 @@ export function buildVariantHtmlReplacements(
         section.id as ReplicaSectionId,
         base,
         section,
-        html
+        html,
+        { patchCta }
       )
     );
   }
 
   const seen = new Set<string>();
   return replacements.filter((r) => {
+    if (isFrozenAnchor(r.anchor)) return false;
     const key = `${r.sectionId}:${r.anchor}:${r.to}`;
     if (seen.has(key)) return false;
     seen.add(key);

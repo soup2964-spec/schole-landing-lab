@@ -136,6 +136,7 @@ Hard rules:
 - Never use dashes in customer-facing copy: no hyphens (-), en dashes (–), or em dashes (—) in name, thesis, headlines, body, item titles, item details, or ctaLabel. Rephrase with commas, periods, or separate sentences instead (e.g. write "one size fits all" not "one-size-fits-all", "built for teams" not "built for teams — fast").
 - Each offspring in a batch of six must be visually distinct: unique hero headline, unique strategic angle, and at least three sections meaningfully different from every sibling. Never clone a parent's hero or repeat the same headline as another offspring.
 - 4-5 sections only: hero, problem, how_it_works, features, and/or outcomes. Do NOT write product_tour, social_proof, credibility, compliance, faq, cta, pricing, or integration sections. The live page keeps the baseline Framer blocks from "What your Employees Get" downward unchanged.
+- Do not supply ctaLabel on bred pages. Primary/secondary buttons, "20 minutes. Live session with a founder.", trust badges, and animated hero widgets stay exactly as on schole.ai.
 - The changelog must have 4-8 entries, each: {what, why, evidence, sourceVariantId?}. Evidence must cite specific numbers or quotes from the report. Use sourceVariantId when importing a section idea from another parent.
 
 Return JSON exactly:

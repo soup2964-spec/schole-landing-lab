@@ -1,4 +1,5 @@
 import type { HtmlReplacement } from "./apply-variant";
+import { FROZEN_BASELINE_COPY, FROZEN_FRAMER_NAMES } from "./baseline-copy";
 import { SECTION_MARKERS } from "./section-markers";
 
 /**
@@ -83,6 +84,18 @@ export function injectLabGuard(html: string, patches: HtmlReplacement[]): string
 (function () {
   var MARKERS = ${JSON.stringify(markers)};
   var PATCHES = ${JSON.stringify(patches)};
+  var FROZEN_COPY = ${JSON.stringify(FROZEN_BASELINE_COPY)};
+  var FROZEN_NAMES = ${JSON.stringify([...FROZEN_FRAMER_NAMES])};
+
+  function isFrozenEl(el) {
+    var name = el.getAttribute && el.getAttribute("data-framer-name");
+    if (name && FROZEN_NAMES.indexOf(name) >= 0) return true;
+    var text = el.textContent || "";
+    for (var i = 0; i < FROZEN_COPY.length; i++) {
+      if (text.indexOf(FROZEN_COPY[i]) >= 0) return true;
+    }
+    return false;
+  }
 
   function needle(s) {
     return s ? s.slice(0, Math.min(s.length, 28)) : "";
@@ -163,6 +176,7 @@ export function injectLabGuard(html: string, patches: HtmlReplacement[]): string
 
     for (var i = 0; i < containers.length; i++) {
       var el = containers[i];
+      if (isFrozenEl(el)) continue;
       var text = el.textContent || "";
       if (text.indexOf(p.anchor) < 0 && (!n || text.indexOf(n) < 0)) continue;
 
