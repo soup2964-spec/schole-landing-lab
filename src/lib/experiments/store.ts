@@ -147,9 +147,11 @@ export async function ensureExperimentSnapshots(history: ExperimentHistoryEntry[
     toBackfill.map((entry) => loadExperimentRun(entry.experimentNumber))
   );
   await Promise.all(
-    toBackfill.flatMap((entry, index) =>
-      existing[index] ? [] : [saveExperimentRun(entry.experimentNumber, activeRun)]
-    )
+    toBackfill.flatMap((entry, index) => {
+      const saved = existing[index];
+      if (saved?.id === activeRun.id) return [];
+      return [saveExperimentRun(entry.experimentNumber, activeRun)];
+    })
   );
 
   return normalized;
@@ -171,13 +173,22 @@ export async function loadRunForExperiment(
     await ensureExperimentSnapshots(catalog);
   }
 
-  const saved = await loadExperimentRun(experimentNumber);
-  if (saved) return saved;
-
+  const activeRun = await loadRun();
   const entry = catalog.find((e) => e.experimentNumber === experimentNumber);
-  if (entry) {
-    const activeRun = await loadRun();
-    if (activeRun?.id === entry.runId) return activeRun;
+  const loopHistory = normalizeExperimentHistory(history);
+
+  // active_run wins when the catalog points at it — stale experiment:N snapshots must not override.
+  if (activeRun && entry?.runId === activeRun.id) {
+    return activeRun;
+  }
+
+  if (loopHistory.length > 0) {
+    const saved = await loadExperimentRun(experimentNumber);
+    if (saved) return saved;
+  }
+
+  if (entry && activeRun?.id === entry.runId) {
+    return activeRun;
   }
 
   if (

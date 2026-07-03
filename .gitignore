@@ -43,3 +43,7 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Local lab runtime — gen-0 preload is generated via npm run setup:demo
+/data/run.json
+/data/experiments/
