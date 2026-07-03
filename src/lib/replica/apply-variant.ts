@@ -122,7 +122,27 @@ export function buildReplacementsForSection(
   }
 
   if (variant.body !== baseline.body) {
-    pushIfChanged(out, sectionId, baseline.body.slice(0, 40), variant.body);
+    const htmlBodies = BASELINE_HTML_COPY[sectionId]?.body;
+    if (htmlBodies?.length) {
+      const primary = htmlBodies[0];
+      pushIfChanged(
+        out,
+        sectionId,
+        primary.slice(0, Math.min(primary.length, 40)),
+        variant.body
+      );
+      for (let i = 1; i < htmlBodies.length; i++) {
+        const extra = htmlBodies[i];
+        pushIfChanged(
+          out,
+          sectionId,
+          extra.slice(0, Math.min(extra.length, 40)),
+          ""
+        );
+      }
+    } else {
+      pushIfChanged(out, sectionId, baseline.body.slice(0, 40), variant.body);
+    }
   }
 
   if (variant.ctaLabel && variant.ctaLabel !== baseline.ctaLabel) {

@@ -150,11 +150,10 @@ export function injectLabGuard(html: string, patches: HtmlReplacement[]): string
     if (targetPresent(p) && !anchorStillPresent(p)) return true;
 
     var scope = document.querySelector('[data-section-id="' + p.sectionId + '"]');
+    if (!scope) return false;
     var tn =
-      (scope && p.anchor ? findTextNode(scope, p.anchor) : null) ||
-      (scope ? findTextNode(scope, needle(p.anchor)) : null) ||
-      (p.anchor ? findTextNode(document.body, p.anchor) : null) ||
-      findTextNode(document.body, needle(p.anchor));
+      (p.anchor ? findTextNode(scope, p.anchor) : null) ||
+      findTextNode(scope, needle(p.anchor));
     if (!tn) return false;
 
     if (p.anchor && tn.data.indexOf(p.anchor) >= 0) {

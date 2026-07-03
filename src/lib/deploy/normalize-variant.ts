@@ -8,7 +8,7 @@ const TYPE_TO_REPLICA: Partial<Record<SectionType, ReplicaSectionId>> = {
   how_it_works: "how",
   problem: "problem",
   features: "features",
-  outcomes: "problem",
+  outcomes: "features",
   social_proof: "proof",
   credibility: "press",
   product_tour: "tour",

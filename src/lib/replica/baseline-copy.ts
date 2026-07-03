@@ -38,7 +38,6 @@ export const BASELINE_HTML_COPY: Record<
   problem: {
     headline: ["The adoption gap is real.", "Scholé closes it."],
     body: [
-      "You bought the tools — ChatGPT, Copilot, Gemini, Claude. But if employees don't know how to use them in their daily work, you're not getting the return.",
       "Scholé helps every employee understand why AI is relevant to their role.",
     ],
   },
