@@ -39,7 +39,7 @@ export function writeVariantHtml(
 ): HtmlWriteResult {
   fs.mkdirSync(VARIANTS_DIR, { recursive: true });
   const normalized = normalizeVariantForReplica(variant);
-  const patchCount = buildVariantHtmlReplacements(baselineVariant, normalized).length;
+  const patchCount = buildVariantHtmlReplacements(baselineVariant, normalized, baselineHtml).length;
 
   if (variant.id === baselineVariant.id) {
     return {
@@ -70,7 +70,7 @@ export function writeProductionBaseline(
     ...mergedBaseline,
     id: `${mergedBaseline.id}-production`,
   });
-  const patchCount = buildVariantHtmlReplacements(baselineVariant, normalized).length;
+  const patchCount = buildVariantHtmlReplacements(baselineVariant, normalized, baselineHtml).length;
   const html = replicaHtmlWithGuard(baselineHtml, normalized);
   fs.writeFileSync(BASELINE_HTML_PATH, html, "utf8");
 

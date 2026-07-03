@@ -14,7 +14,22 @@ export const REPLICA_SECTION_IDS = [
 export type ReplicaSectionId = (typeof REPLICA_SECTION_IDS)[number];
 
 /**
- * Exact strings from public/baseline/index.html used as replacement anchors.
+ * Bred / API-served variants only swap copy above the "What your Employees Get"
+ * tour section. Proof, press, FAQ, CTA, and the tour block itself stay baseline.
+ */
+export const BRED_PATCHABLE_SECTIONS: ReplicaSectionId[] = [
+  "hero",
+  "how",
+  "problem",
+  "features",
+];
+
+export function patchableSectionIds(variant: { generation: number }): readonly ReplicaSectionId[] {
+  return variant.generation > 0 ? BRED_PATCHABLE_SECTIONS : REPLICA_SECTION_IDS;
+}
+
+/**
+ * Exact strings from public/baseline/lab-source.html used as replacement anchors.
  * Variants swap these in-place; layout, styles, and images stay identical.
  */
 export const BASELINE_HTML_COPY: Record<
@@ -45,16 +60,16 @@ export const BASELINE_HTML_COPY: Record<
     headline: ["Learning that adapts to each person"],
     body: [
       "Every employee follows a path built around their tools, skills, and pace. The lesson content adjusts in real time as they progress.",
-      "You bought the tools",
     ],
     items: [
       "Content tied to daily work",
       "Every lesson maps to the learner's actual tools (Notion, Excel, PowerPoint) and job function. They see immediately how their learning applies to their role.",
       "Measurable outcomes",
+      "Completion rates, mastery levels, and adoption metrics, trackable in natural language from day one.",
     ],
   },
   tour: {
-    headline: ["What your employees get"],
+    headline: ["What your", "Employees Get"],
     body: [
       "Targeted learning that fits into the workday and helps employees work faster and better with AI.",
       "An AI tutor team that adjusts to each learner",
@@ -63,7 +78,11 @@ export const BASELINE_HTML_COPY: Record<
   },
   proof: {
     headline: ["Teams at these organizations are already learning on"],
-    body: ["Decathlon Switzerland and the Harvard Data Science Initiative use Scholé today."],
+    body: [],
+    items: [
+      "significantly improved perceptions of AI at Decathlon",
+      "simply no comparison. They are the best.",
+    ],
   },
   press: {
     headline: ["Backed by the best.", "featured in the press"],
@@ -83,6 +102,11 @@ export const BASELINE_HTML_COPY: Record<
     cta: "Book a demo",
   },
 };
+
+/** Mid-page Framer copy that sits in the wrong section — clear on bred variants. */
+export const STRAY_BASELINE_FRAGMENTS: { sectionId: ReplicaSectionId; anchor: string }[] = [
+  { sectionId: "features", anchor: "You bought the tools" },
+];
 
 /** Mid-page copy used by the live site — promoted to hero on v3-problem. */
 export const ADOPTION_GAP_HERO = {

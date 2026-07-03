@@ -99,147 +99,27 @@ export function injectLabGuard(html: string, patches: HtmlReplacement[]): string
   }
 
   function containerFor(textNode) {
+    // Climb from the text node to a block-ish ancestor that visually contains
+    // the section headline (Framer wraps text in several nested divs).
     var el = textNode.parentElement;
-    while (el && el !== document.body) {
-      var type = el.getAttribute && el.getAttribute("data-framer-component-type");
-      var name = el.getAttribute && el.getAttribute("data-framer-name");
-      if (type === "RichTextContainer") {
-        el = el.parentElement;
-        continue;
-      }
-      if (
-        name === "Heading" ||
-        name === "Left" ||
-        name === "Description" ||
-        name === "Container" ||
-        name === "Content"
-      ) {
-        return el;
-      }
-      if (el.tagName === "SECTION" || el.tagName === "HEADER" || el.tagName === "FOOTER") {
-        return el;
-      }
+    var best = el;
+    var hops = 0;
+    while (el && el !== document.body && hops < 6) {
+      var tag = el.tagName;
+      if (tag === "SECTION" || tag === "HEADER" || tag === "FOOTER") return el;
+      if (el.getAttribute && el.getAttribute("data-framer-name")) best = el;
       el = el.parentElement;
+      hops++;
     }
-    el = textNode.parentElement;
-    for (var hops = 0; el && el !== document.body && hops < 6; hops++) {
-      el = el.parentElement;
-    }
-    return el || textNode.parentElement;
-  }
-
-  function patchScopes(p) {
-    var scopes = [];
-    var seen = {};
-    function add(el) {
-      if (!el || el === document.body || seen[el]) return;
-      seen[el] = true;
-      scopes.push(el);
-      if (el.querySelectorAll) {
-        var rtcs = el.querySelectorAll('[data-framer-component-type="RichTextContainer"]');
-        for (var i = 0; i < rtcs.length; i++) add(rtcs[i]);
-      }
-    }
-
-    var primary = document.querySelector('[data-section-id="' + p.sectionId + '"]');
-    if (primary) {
-      add(primary);
-      var up = primary.parentElement;
-      for (var u = 0; up && up !== document.body && u < 4; u++) {
-        add(up);
-        up = up.parentElement;
-      }
-    }
-
-    if (!primary) {
-      var tn =
-        findTextNode(document.body, needle(p.anchor)) ||
-        (p.to ? findTextNode(document.body, needle(p.to)) : null);
-      if (tn) add(containerFor(tn));
-    }
-    return scopes;
-  }
-
-  function scopeText(scope) {
-    return scope && scope.textContent ? scope.textContent : "";
-  }
-
-  function targetPresent(p) {
-    if (!p.to) return true;
-    var scopes = patchScopes(p);
-    for (var i = 0; i < scopes.length; i++) {
-      var text = scopeText(scopes[i]);
-      if (text.indexOf(p.to) >= 0) return true;
-      var hint = p.to.slice(0, Math.min(p.to.length, 48));
-      if (hint.length >= 12 && text.indexOf(hint) >= 0) return true;
-    }
-    return false;
-  }
-
-  function anchorStillPresent(p) {
-    if (!p.anchor) return false;
-    var scopes = patchScopes(p);
-    for (var i = 0; i < scopes.length; i++) {
-      if (scopeText(scopes[i]).indexOf(p.anchor) >= 0) return true;
-    }
-    return false;
-  }
-
-  function tryApplyInScope(scope, p) {
-    var n = p.anchor ? needle(p.anchor) : "";
-    var applied = false;
-    var wrotePrimary = false;
-    var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, null);
-    var node;
-
-    while ((node = walker.nextNode())) {
-      var hit =
-        (p.anchor && node.data.indexOf(p.anchor) >= 0) ||
-        (n && node.data.indexOf(n) >= 0);
-      if (!hit) continue;
-
-      if (p.anchor && node.data.indexOf(p.anchor) >= 0) {
-        if (p.to && !wrotePrimary) {
-          node.data = node.data.replace(p.anchor, p.to);
-          wrotePrimary = true;
-        } else {
-          node.data = node.data.split(p.anchor).join("");
-        }
-      } else if (n && node.data.indexOf(n) >= 0) {
-        if (p.to && !wrotePrimary) {
-          node.data = node.data.replace(n, p.to);
-          wrotePrimary = true;
-        } else {
-          node.data = node.data.split(n).join("");
-        }
-      } else if (p.to && !wrotePrimary) {
-        node.data = p.to;
-        wrotePrimary = true;
-      } else {
-        node.data = "";
-      }
-      applied = true;
-    }
-    return applied;
-  }
-
-  function applyPatch(p) {
-    if (targetPresent(p) && !anchorStillPresent(p)) return true;
-
-    var scopes = patchScopes(p);
-    for (var i = 0; i < scopes.length; i++) {
-      if (tryApplyInScope(scopes[i], p)) return true;
-    }
-    return false;
+    return best;
   }
 
   function markSections() {
     for (var i = 0; i < MARKERS.length; i++) {
       var m = MARKERS[i];
       if (document.querySelector('[data-section-id="' + m.id + '"]')) continue;
-      var tn =
-        findTextNode(document.body, needle(m.anchor)) ||
-        findTextNode(document.body, needle(m.alt));
+      var tn = findTextNode(document.body, needle(m.anchor)) ||
+               findTextNode(document.body, needle(m.alt));
       if (!tn) continue;
       var el = containerFor(tn);
       if (el) {
@@ -247,6 +127,54 @@ export function injectLabGuard(html: string, patches: HtmlReplacement[]): string
         el.id = "section-" + m.id;
       }
     }
+  }
+
+  function patchScope(p) {
+    return document.querySelector('[data-section-id="' + p.sectionId + '"]');
+  }
+
+  function targetPresent(p) {
+    if (!p.to) return true;
+    var root = document.getElementById("main") || document.body;
+    var text = root.textContent || "";
+    if (text.indexOf(p.to) >= 0) return true;
+    var hint = p.to.slice(0, Math.min(p.to.length, 48));
+    return hint.length >= 12 && text.indexOf(hint) >= 0;
+  }
+
+  function anchorStillPresent(p) {
+    if (!p.anchor) return false;
+    var root = document.getElementById("main") || document.body;
+    var text = root.textContent || "";
+    if (text.indexOf(p.anchor) >= 0) return true;
+    var n = needle(p.anchor);
+    return n.length > 0 && text.indexOf(n) >= 0;
+  }
+
+  function applyPatch(p) {
+    if (targetPresent(p) && !anchorStillPresent(p)) return true;
+    if (!p.anchor) return false;
+
+    var n = needle(p.anchor);
+    var root = document.getElementById("main") || document.body;
+    var containers = root.querySelectorAll('[data-framer-component-type="RichTextContainer"]');
+    var applied = false;
+    var wrotePrimary = false;
+
+    for (var i = 0; i < containers.length; i++) {
+      var el = containers[i];
+      var text = el.textContent || "";
+      if (text.indexOf(p.anchor) < 0 && (!n || text.indexOf(n) < 0)) continue;
+
+      if (p.to && !wrotePrimary) {
+        el.textContent = p.to;
+        wrotePrimary = true;
+      } else {
+        el.textContent = "";
+      }
+      applied = true;
+    }
+    return applied;
   }
 
   function run() {

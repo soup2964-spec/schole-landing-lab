@@ -5,37 +5,49 @@ import {
   type HtmlReplacement,
 } from "./apply-variant";
 
-/** Apply one text swap inside a live DOM section (post-Framer-hydration). */
+function anchorNeedle(anchor: string): string {
+  return anchor.slice(0, Math.min(anchor.length, 28));
+}
+
+/** Replace every RichTextContainer in the document that contains the anchor. */
+export function replaceRichTextGloballyInDocument(
+  doc: Document,
+  anchor: string,
+  to: string
+): boolean {
+  if (!anchor) return false;
+  const needle = anchorNeedle(anchor);
+  const root = doc.getElementById("main") ?? doc.body;
+  const containers = root.querySelectorAll(
+    '[data-framer-component-type="RichTextContainer"]'
+  );
+
+  let applied = false;
+  let wrotePrimary = false;
+
+  for (const el of containers) {
+    const text = el.textContent ?? "";
+    if (!text.includes(anchor) && !text.includes(needle)) continue;
+
+    if (to && !wrotePrimary) {
+      el.textContent = to;
+      wrotePrimary = true;
+    } else {
+      el.textContent = "";
+    }
+    applied = true;
+  }
+
+  return applied;
+}
+
+/** @deprecated Prefer replaceRichTextGloballyInDocument. */
 export function replaceTextInSectionElement(
   section: Element,
   anchor: string,
   to: string
 ): boolean {
-  if (!anchor) return false;
-  const needle = anchor.slice(0, Math.min(anchor.length, 28));
-  if (!section.textContent?.includes(needle) && !section.textContent?.includes(anchor)) return false;
-  if (to && section.textContent?.includes(to)) return true;
-
-  // Prefer leaf text elements (single text node — matches our HTML swap model).
-  const leaves = section.querySelectorAll("h1,h2,h3,h4,p,span,a,button");
-  for (const el of leaves) {
-    if (el.children.length > 0) continue;
-    const text = el.textContent ?? "";
-    if (text.includes(needle)) {
-      el.textContent = to;
-      return true;
-    }
-  }
-
-  // Framer RichTextContainer often splits copy across nested spans.
-  for (const el of section.querySelectorAll('[data-framer-component-type="RichTextContainer"]')) {
-    if ((el.textContent ?? "").includes(needle)) {
-      el.textContent = to;
-      return true;
-    }
-  }
-
-  return false;
+  return replaceRichTextGloballyInDocument(section.ownerDocument, anchor, to);
 }
 
 export function applyReplacementsToDocument(
@@ -50,9 +62,7 @@ export function applyReplacementsToDocument(
 
   let applied = 0;
   for (const r of replacements) {
-    const section = doc.querySelector(`[data-section-id="${r.sectionId}"]`);
-    if (!section) continue;
-    if (replaceTextInSectionElement(section, r.anchor, r.to)) applied++;
+    if (replaceRichTextGloballyInDocument(doc, r.anchor, r.to)) applied++;
   }
   return applied;
 }
@@ -66,16 +76,17 @@ export function variantDomReplacements(variant: PageVariant): HtmlReplacement[] 
 /** True when any baseline anchor text reappeared after Framer hydration. */
 export function needsVariantPatch(doc: Document, variant: PageVariant): boolean {
   if (variant.id === "v0-baseline") return false;
+  const root = doc.getElementById("main") ?? doc.body;
+  const text = root.textContent ?? "";
+
   return variantDomReplacements(variant).some((r) => {
-    const section = doc.querySelector(`[data-section-id="${r.sectionId}"]`);
-    if (!section) return false;
-    const text = section.textContent ?? "";
     if (r.to && text.includes(r.to)) return false;
     if (r.to.length >= 12) {
       const hint = r.to.slice(0, Math.min(r.to.length, 48));
       if (text.includes(hint)) return false;
     }
-    return r.anchor ? text.includes(r.anchor) : false;
+    const needle = anchorNeedle(r.anchor);
+    return (r.anchor && text.includes(r.anchor)) || (needle && text.includes(needle));
   });
 }
 
@@ -101,8 +112,6 @@ export function scheduleVariantDomPatch(
   run();
   const timers = [50, 150, 400, 900, 2000, 4000].map((ms) => setTimeout(run, ms));
 
-  const hero = doc.querySelector('[data-section-id="hero"]');
-  const observeRoot = hero ?? doc.body;
   let debounce: ReturnType<typeof setTimeout> | undefined;
   const observer = new MutationObserver(() => {
     if (stopped || !needsVariantPatch(doc, variant)) return;
@@ -110,7 +119,7 @@ export function scheduleVariantDomPatch(
     debounce = setTimeout(run, 30);
   });
 
-  observer.observe(observeRoot, {
+  observer.observe(doc.documentElement, {
     subtree: true,
     characterData: true,
     childList: true,

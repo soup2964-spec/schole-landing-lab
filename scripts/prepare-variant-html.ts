@@ -25,7 +25,7 @@ function writeVariantReplica(
   variant: PageVariant
 ) {
   const normalized = normalizeVariantForReplica(variant);
-  const patches = buildVariantHtmlReplacements(baselineVariant, normalized);
+  const patches = buildVariantHtmlReplacements(baselineVariant, normalized, baselineHtml);
   let html = applyVariantToBaselineHtml(baselineHtml, baselineVariant, normalized);
   html = injectLabGuard(stripLabGuard(html), patches);
 
