@@ -14,6 +14,7 @@ interface ControlState {
   experimentMode?: "hybrid" | "full";
   llmExperimentAvailable?: boolean;
   llmProvider?: string | null;
+  demoPreload?: boolean;
 }
 
 function Toggle({
@@ -229,6 +230,13 @@ export function ControlCenterView({
           </div>
         )}
 
+        {state?.demoPreload && (
+          <p className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-center text-xs text-sky-900">
+            Demo mode — readings, traffic simulation, and behavior report are preloaded; the run
+            jumps to LLM breeding in ~2 seconds.
+          </p>
+        )}
+
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -280,7 +288,9 @@ export function ControlCenterView({
             <p className="mt-3 text-center text-xs text-slate-500">
               {autonomous
                 ? "Real visitors on variant pages feed the loop. Click Live to confirm status and share pages for people to run."
-                : llmPersonas
+                : state?.demoPreload
+                  ? "Preloaded gen-0 results replay quickly, then the optimizer breeds six distinct landing pages via LLM."
+                  : llmPersonas
                   ? "LLM personas read each page, traffic is simulated, a behavior report is built, and the optimizer breeds six distinct landing pages."
                   : "Simulated user behavior drives a behavior report; the optimizer then breeds six distinct pages (one per base angle)."}
             </p>

@@ -11,6 +11,8 @@
     "demo": "tsx scripts/generate-demo-run.ts",
     "migrate:supabase": "tsx scripts/migrate-to-supabase.ts",
     "reset:lab": "tsx scripts/reset-lab.ts",
+    "prepare:demo-preload": "tsx scripts/prepare-demo-preload.ts",
+    "setup:demo": "tsx scripts/reset-lab.ts && tsx scripts/prepare-demo-preload.ts",
     "deploy:html": "tsx scripts/regenerate-variant-html.ts",
     "aa-test": "tsx scripts/aa-test.ts",
     "prepare:baseline": "tsx scripts/prepare-baseline-html.ts",

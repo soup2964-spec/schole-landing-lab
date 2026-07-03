@@ -12,6 +12,11 @@ import { makeRng, pickWeighted } from "@/lib/sim/rng";
 import { analyzeGeneration } from "@/lib/stats/bayes";
 import { mapPool } from "@/lib/async/pool";
 import { buildComputedReport } from "./computed-report";
+import {
+  demoPreloadEnabled,
+  loadDemoPreloadSnapshot,
+  replayDemoPreloadProgress,
+} from "./demo-preload";
 import { breedVariant, pageSimilarity, angleForChild, BREEDING_ANGLES } from "./optimizer";
 import type { BreedingAngle } from "./optimizer";
 import type { ExperimentProgressReporter } from "@/lib/loop/experiment-progress";
@@ -238,6 +243,8 @@ export interface RunConfig {
   offspringPerGeneration: number;
   /** llm = LLM reads each page as each persona; heuristic = rule-based readings, still uses LLM eval/breed. */
   personaReadingMode?: PersonaReadingMode;
+  /** When true (DEMO_PRELOAD=1), generation 0 uses committed snapshot instead of live simulation. */
+  demoPreload?: boolean;
   log?: (msg: string) => void;
   progress?: ExperimentProgressReporter;
 }
@@ -286,6 +293,25 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
     log(`=== Generation ${gen}: ${pool.length} variants in pool ===`);
     progress?.setGeneration(gen, pool.length);
 
+    const usePreload = Boolean(cfg.demoPreload) && gen === 0;
+    let visits: Visit[] = [];
+    let metrics: VariantMetrics[] = [];
+    let decisions: ReturnType<typeof analyzeGeneration> = [];
+    let report: GenerationReport;
+    let allocationHistory: AllocationSnapshot[] = [];
+    let totalVisits = 0;
+
+    if (usePreload) {
+      const snapshot = loadDemoPreloadSnapshot();
+      log(`  using demo preload (seed ${snapshot.seed}) — skipping live readings/simulation`);
+      await replayDemoPreloadProgress(progress, snapshot);
+      visits = snapshot.visits;
+      metrics = snapshot.metrics;
+      decisions = snapshot.decisions;
+      report = snapshot.report;
+      allocationHistory = snapshot.allocationHistory;
+      totalVisits = snapshot.totalVisits ?? snapshot.visits.length;
+    } else {
     // 1. Persona readings for every (persona, variant) pair.
     const readings = new Map<string, PersonaReading[]>();
 
@@ -348,8 +374,8 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
     // 2. Monte Carlo visits with bandit allocation.
     progress?.simulating();
     const bandit = new ThompsonBandit(pool.map((v) => v.id));
-    const visits: Visit[] = [];
-    const allocationHistory: AllocationSnapshot[] = [];
+    visits = [];
+    allocationHistory = [];
     const snapshotEvery = Math.max(1, Math.floor(cfg.visitsPerGeneration / 20));
 
     for (let i = 0; i < cfg.visitsPerGeneration; i++) {
@@ -367,7 +393,7 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
     }
 
     // 3. Metrics + Bayesian decisions + evaluator report.
-    const metrics = pool.map((v) => computeMetrics(v, visits));
+    metrics = pool.map((v) => computeMetrics(v, visits));
     metrics.sort((a, b) => b.fitness - a.fitness);
     const baselineId = pool.some((v) => v.id === "v0-baseline")
       ? "v0-baseline"
@@ -376,7 +402,7 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
       readingMode === "heuristic"
         ? personas.length
         : personas.length * readingsPerPair;
-    const decisions = analyzeGeneration(
+    decisions = analyzeGeneration(
       metrics.map((m) => ({
         id: m.variantId,
         conversions: m.conversions,
@@ -389,11 +415,14 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
     );
     log(`  building behavior report for generation ${gen}...`);
     progress?.evaluating();
-    const report = buildComputedReport(gen, pool, metrics, decisions);
+    report = buildComputedReport(gen, pool, metrics, decisions);
+    totalVisits = visits.length;
+    }
 
-    // 4. Breed offspring (skip after the final generation).
+    // 4. Breed offspring (skip after the final generation unless demo preload).
     const offspring: PageVariant[] = [];
-    if (gen < cfg.generations - 1) {
+    const shouldBreed = cfg.demoPreload ? gen === 0 : gen < cfg.generations - 1;
+    if (shouldBreed) {
       const ranked = metrics
         .map((m) => pool.find((v) => v.id === m.variantId)!)
         .filter(Boolean);
@@ -419,7 +448,7 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
       generation: gen,
       variantIds: pool.map((v) => v.id),
       visits,
-      totalVisits: visits.length,
+      totalVisits: totalVisits || visits.length,
       metrics,
       allocationHistory,
       report,

@@ -1,4 +1,5 @@
 import { runExperiment, llmExperimentConfig } from "@/lib/evolve/run";
+import { DEMO_PRELOAD_SEED, demoPreloadEnabled } from "@/lib/evolve/demo-preload";
 import { GENERATION_0 } from "@/config/variants";
 import { promoteAndDeploy, type PromoteResult } from "@/lib/deploy/promote";
 import { writeAllVariantHtml } from "@/lib/deploy/write-html";
@@ -51,16 +52,21 @@ export async function runManualExperiment(): Promise<ManualExperimentResult> {
   const history = normalizeExperimentHistory(loopState.experimentHistory);
   const experimentNumber = nextExperimentNumber(history);
 
-  const seed = Date.now() % 1_000_000_000;
+  const preloadDemo = demoPreloadEnabled();
+  const seed = preloadDemo ? DEMO_PRELOAD_SEED : Date.now() % 1_000_000_000;
   const runId = `run-${seed}`;
-  const generations = Number(process.env.LLM_GENERATIONS ?? 2);
+  const generations = preloadDemo
+    ? 1
+    : Number(process.env.LLM_GENERATIONS ?? 2);
   await clearExperimentProgress();
   const progress = new ExperimentProgressReporter(mode, generations, experimentNumber, runId);
 
   try {
     const run = await runExperiment({
       ...llmExperimentConfig(seed, (msg) => console.log(`[experiment] ${msg}`)),
-      personaReadingMode: mode === "full" ? "llm" : "heuristic",
+      generations,
+      personaReadingMode: mode === "full" && !preloadDemo ? "llm" : "heuristic",
+      demoPreload: preloadDemo,
       progress,
     });
 
