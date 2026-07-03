@@ -32,8 +32,8 @@ export function PersonasDetail() {
       </p>
 
       <p className="text-xs text-slate-500">
-        Persona set v{PERSONA_SET_V1.version} · priors from 2025–26 L&D buyer research · calibratable
-        from live PostHog traffic.
+        Persona set v{PERSONA_SET_V1.version} · priors from McKinsey, OECD, WEF, Gallup, LinkedIn,
+        Fosway & EUR-Lex · calibratable from live PostHog traffic.
       </p>
 
       <div className="relative">
