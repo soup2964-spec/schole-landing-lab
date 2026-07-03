@@ -116,9 +116,9 @@ export async function buildExperimentCatalog(
   const fromLoop = normalizeExperimentHistory(loopHistory);
 
   let fromSnapshots: ExperimentHistoryEntry[] = [];
-  if (fromLoop.length === 0) {
-    fromSnapshots = await historyFromSnapshots();
-  } else if (options.reconcileSnapshots) {
+  // Only reconcile snapshot gaps when loop history already has entries.
+  // An empty loop history means a fresh lab — do not resurrect experiment:N snapshots.
+  if (fromLoop.length > 0 && options.reconcileSnapshots) {
     fromSnapshots = await historyFromSnapshotGaps(fromLoop);
   }
 
