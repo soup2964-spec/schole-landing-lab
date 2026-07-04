@@ -62,7 +62,7 @@ export function BehaviorDetail({
   }, [filtered, selectedId, gen, fetchVisit]);
 
   if (!index?.length) {
-    return <p className="text-sm text-slate-500">Run npm run demo to populate behavior data.</p>;
+    return <p className="text-sm text-slate-500">Run an experiment from the Control tab to populate behavior data.</p>;
   }
 
   const selected = filtered.find((v) => v.id === selectedId);

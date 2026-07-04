@@ -3,12 +3,10 @@ import path from "path";
 import { GENERATION_0 } from "@/config/variants";
 import { removeBredVariantHtml } from "@/lib/deploy/write-html";
 import { saveDeployState } from "@/lib/deploy/state";
-import { demoPreloadEnabled } from "@/lib/evolve/demo-preload";
-import { buildGen0PreloadRun } from "@/lib/lab/gen0-preload-run";
 import { resetExperimentProgress } from "@/lib/loop/experiment-progress";
 import { invalidateLoopCache, loadLoopState, saveLoopState } from "@/lib/loop/state";
 import { labFsWritable } from "@/lib/lab-fs";
-import { invalidateRunCache, saveRun } from "@/lib/registry";
+import { invalidateRunCache } from "@/lib/registry";
 import {
   invalidateLabDocumentCache,
   LAB_DOC,
@@ -16,8 +14,7 @@ import {
 } from "@/lib/supabase/lab-documents";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-export interface ResetDemoResult {
-  restoredPreload: boolean;
+export interface ResetLabResult {
   removedHtml: string[];
 }
 
@@ -52,13 +49,9 @@ async function deleteActiveRunLocally() {
   rmIfExists(path.join(process.cwd(), "data", "run.json"));
 }
 
-/**
- * Reset the lab to demo starting state: clear experiment history, remove bred pages,
- * and restore gen-0 preload when DEMO_PRELOAD=1.
- */
-export async function resetDemoLab(): Promise<ResetDemoResult> {
+/** Reset experiment history, bred pages, and active run — keeps gen-0 base pages. */
+export async function resetLabState(): Promise<ResetLabResult> {
   const loop = await loadLoopState();
-  const restorePreload = demoPreloadEnabled();
 
   await deleteRemoteExperimentDocs();
   clearLocalExperimentFiles();
@@ -88,26 +81,12 @@ export async function resetDemoLab(): Promise<ResetDemoResult> {
   });
 
   await resetExperimentProgress();
-
-  if (restorePreload) {
-    const run = buildGen0PreloadRun();
-    await saveRun(run);
-  } else {
-    invalidateRunCache();
-    if (labFsWritable()) {
-      rmIfExists(path.join(process.cwd(), "data", "run.json"));
-    }
-    const sb = getSupabaseAdmin();
-    if (sb) {
-      await sb.from("lab_documents").delete().eq("id", LAB_DOC.ACTIVE_RUN);
-    }
-  }
+  invalidateRunCache();
 
   const removedHtml = removeBredVariantHtml();
 
-  invalidateRunCache();
   invalidateLoopCache();
   invalidateLabDocumentCache();
 
-  return { restoredPreload: restorePreload, removedHtml };
+  return { removedHtml };
 }

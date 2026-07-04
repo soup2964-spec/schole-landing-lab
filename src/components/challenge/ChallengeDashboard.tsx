@@ -129,7 +129,7 @@ export function ChallengeDashboard() {
         {run ? (
           <ChallengeBehaviorPreview initialIndex={visitIndex(run)} initialVariants={variants} />
         ) : (
-          <p className="text-sm text-slate-500">Run npm run demo to populate behavior data.</p>
+          <p className="text-sm text-slate-500">Run an experiment from the Control tab to populate behavior data.</p>
         )}
       </ChallengeSection>
 

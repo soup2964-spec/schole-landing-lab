@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { resetDemoLab } from "@/lib/lab/reset-demo";
+import { resetLabState } from "@/lib/lab/reset-lab";
 import { isProgressActivelyRunning, loadExperimentProgress } from "@/lib/loop/experiment-progress";
 import { isAutonomousMode, loadLoopState } from "@/lib/loop/state";
 
@@ -9,7 +9,7 @@ export async function POST() {
   const state = await loadLoopState();
   if (isAutonomousMode(state)) {
     return NextResponse.json(
-      { error: "Turn off Autonomous mode before resetting the demo." },
+      { error: "Turn off Autonomous mode before resetting the lab." },
       { status: 400 }
     );
   }
@@ -23,14 +23,13 @@ export async function POST() {
   }
 
   try {
-    const result = await resetDemoLab();
+    const result = await resetLabState();
     return NextResponse.json({
       ok: true,
-      restoredPreload: result.restoredPreload,
       removedPages: result.removedHtml.length,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Demo reset failed";
+    const message = err instanceof Error ? err.message : "Lab reset failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

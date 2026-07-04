@@ -12,11 +12,6 @@ import { makeRng, pickWeighted } from "@/lib/sim/rng";
 import { analyzeGeneration } from "@/lib/stats/bayes";
 import { mapPool } from "@/lib/async/pool";
 import { buildComputedReport } from "./computed-report";
-import {
-  demoPreloadEnabled,
-  loadDemoPreloadSnapshot,
-  replayDemoPreloadProgress,
-} from "./demo-preload";
 import { breedVariant, pageSimilarity, angleForChild, BREEDING_ANGLES } from "./optimizer";
 import type { BreedingAngle } from "./optimizer";
 import type { ExperimentProgressReporter } from "@/lib/loop/experiment-progress";
@@ -243,8 +238,6 @@ export interface RunConfig {
   offspringPerGeneration: number;
   /** llm = LLM reads each page as each persona; heuristic = rule-based readings, still uses LLM eval/breed. */
   personaReadingMode?: PersonaReadingMode;
-  /** When true (DEMO_PRELOAD=1), generation 0 uses committed snapshot instead of live simulation. */
-  demoPreload?: boolean;
   log?: (msg: string) => void;
   progress?: ExperimentProgressReporter;
 }
@@ -293,7 +286,6 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
     log(`=== Generation ${gen}: ${pool.length} variants in pool ===`);
     progress?.setGeneration(gen, pool.length);
 
-    const usePreload = Boolean(cfg.demoPreload) && gen === 0;
     let visits: Visit[] = [];
     let metrics: VariantMetrics[] = [];
     let decisions: ReturnType<typeof analyzeGeneration> = [];
@@ -301,21 +293,10 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
     let allocationHistory: AllocationSnapshot[] = [];
     let totalVisits = 0;
 
-    if (usePreload) {
-      const snapshot = loadDemoPreloadSnapshot();
-      log(`  using demo preload (seed ${snapshot.seed}) — skipping live readings/simulation`);
-      await replayDemoPreloadProgress(progress, snapshot);
-      visits = snapshot.visits;
-      metrics = snapshot.metrics;
-      decisions = snapshot.decisions;
-      report = snapshot.report;
-      allocationHistory = snapshot.allocationHistory;
-      totalVisits = snapshot.totalVisits ?? snapshot.visits.length;
-    } else {
-      // 1. Persona readings for every (persona, variant) pair.
-      const readings = new Map<string, PersonaReading[]>();
+    // 1. Persona readings for every (persona, variant) pair.
+    const readings = new Map<string, PersonaReading[]>();
 
-      if (readingMode === "heuristic") {
+    if (readingMode === "heuristic") {
         const total = pool.length * personas.length;
         log(`  ${total} heuristic persona readings...`);
         progress?.readingsStart(total);
@@ -417,11 +398,10 @@ export async function runExperiment(cfg: RunConfig = DEFAULT_CONFIG): Promise<Ex
       progress?.evaluating();
       report = buildComputedReport(gen, pool, metrics, decisions);
       totalVisits = visits.length;
-    }
 
-    // 4. Breed offspring (skip after the final generation unless demo preload).
+    // 4. Breed offspring (skip after the final generation).
     const offspring: PageVariant[] = [];
-    const shouldBreed = cfg.demoPreload ? gen === 0 : gen < cfg.generations - 1;
+    const shouldBreed = gen < cfg.generations - 1;
     if (shouldBreed) {
       const ranked = metrics
         .map((m) => pool.find((v) => v.id === m.variantId)!)

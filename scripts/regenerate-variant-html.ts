@@ -12,7 +12,7 @@ const forceBest = process.argv.includes("--promote");
 async function main() {
   const run = await loadRun();
   if (!run) {
-    console.error("No active run — run npm run demo first.");
+    console.error("No active run — run an experiment first.");
     process.exit(1);
   }
 

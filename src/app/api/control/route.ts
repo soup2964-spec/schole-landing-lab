@@ -7,7 +7,6 @@ import {
 } from "@/lib/loop/manual-experiment";
 import { isProgressActivelyRunning, loadExperimentProgress } from "@/lib/loop/experiment-progress";
 import { isAutonomousMode, loadLoopState, saveLoopState } from "@/lib/loop/state";
-import { demoPreloadEnabled } from "@/lib/evolve/demo-preload";
 
 /** Background experiment via after() — Hobby plan caps at 300s. */
 export const maxDuration = 300;
@@ -24,7 +23,6 @@ export async function GET() {
     experimentMode: manualExperimentMode(state),
     llmExperimentAvailable: isLlmExperimentAvailable(),
     llmProvider: llmExperimentProviderLabel(),
-    demoPreload: demoPreloadEnabled(),
   });
 }
 

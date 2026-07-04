@@ -83,8 +83,7 @@ export function BehaviorReport({
     return (
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
-          No behavior data yet. Run <code className="rounded bg-slate-100 px-1">npm run demo</code>{" "}
-          to simulate persona visits, or open a variant page (e.g.{" "}
+          No behavior data yet. Run an experiment from the Control tab to simulate persona visits, or open a variant page (e.g.{" "}
           <code className="rounded bg-slate-100 px-1">/v/v1-roi</code>) to record live sessions.
         </p>
         {!liveConfigured && (

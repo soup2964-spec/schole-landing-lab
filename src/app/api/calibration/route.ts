@@ -57,7 +57,7 @@ export async function GET() {
 export async function POST() {
   const simulated = await simulatedFromRun();
   if (!simulated) {
-    return NextResponse.json({ error: "No simulated run found. Run npm run demo first." }, { status: 400 });
+    return NextResponse.json({ error: "No simulated run found. Run an experiment first." }, { status: 400 });
   }
 
   let real;

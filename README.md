@@ -20,9 +20,11 @@ LLM-powered persona agents simulate user behavior on landing page variants. A Th
 
 ```bash
 npm install
-npm run demo        # generate deterministic demo data (no API key)
-npm run dev         # open http://localhost:3000
+cp .env.example .env.local   # set KIE_API_KEY or OPENAI_API_KEY for experiments
+npm run dev                  # open http://localhost:3000
 ```
+
+Run an experiment from the **Control** tab in the dashboard (hybrid ~2–5 min, full LLM ~20 min).
 
 ### Full LLM experiment (optional)
 
@@ -57,8 +59,8 @@ Generation N+1 …
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start Next.js dev server |
-| `npm run demo` | Generate offline demo run → `data/run.json` |
-| `npm run experiment` | Full LLM-powered 3-generation run |
+| `npm run experiment` | Full LLM-powered multi-generation run (CLI) |
+| `npm run reset:lab` | Wipe experiment history and bred pages |
 | `npm run build` | Production build |
 
 ## Deploy

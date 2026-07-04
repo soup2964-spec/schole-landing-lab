@@ -201,14 +201,6 @@ export function ExperimentWorkbench({
     return latest;
   }, [loadIteration]);
 
-  const resetWorkbench = useCallback(async () => {
-    setProgress(null);
-    setExperimentHistory([]);
-    setIteration(1);
-    setSelectedVariantId(null);
-    await loadIteration(1);
-  }, [loadIteration]);
-
   useEffect(() => {
     if (progress?.status !== "complete" && progress?.status !== "error") return;
     const t = setTimeout(() => {
@@ -328,7 +320,6 @@ export function ExperimentWorkbench({
             pollProgress={pollProgress}
             onDismissProgress={() => void dismissProgress()}
             onSettingsChange={handleSettingsChange}
-            onDemoReset={resetWorkbench}
             onExperimentComplete={async () => {
               await pollProgress();
               await goToLatestExperiment();
