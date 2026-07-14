@@ -9,7 +9,6 @@
 | Persona research citations | [`persona-research.ts`](./persona-research.ts) | Refresh dashboard |
 | Workbench section labels / criteria copy | [`criteria.ts`](./criteria.ts) | Refresh |
 | Promote / kill / bounce thresholds | [`thresholds.ts`](./thresholds.ts) | Re-run experiment |
-| Robustness snapshot config | [`robustness.json`](./robustness.json) | `npm run prepare:robustness` |
 | Dashboard brand colors | [`../styles/globals.css`](../styles/globals.css) | Refresh |
 | Run / stop experiment | Control Center UI on `/` | — |
 | Wipe lab mid-demo | `npm run reset:lab` | — |

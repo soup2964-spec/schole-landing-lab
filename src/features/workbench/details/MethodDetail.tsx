@@ -8,7 +8,6 @@ import {
 } from "@/domains/judgment/behavior-criteria";
 import { EVALUATOR_SCORECARD_DIMENSIONS } from "@/domains/judgment/criteria";
 import { DECISION_THRESHOLDS } from "@/platform/stats/bayes";
-import { RobustnessDetail } from "./RobustnessDetail";
 import {
   FitnessDetail,
   FunnelDetail,
@@ -78,7 +77,7 @@ const TIER_CARDS: {
 /**
  * Comparison method — horizontal tier cards with pop-up detail panels.
  */
-export function MethodDetail({ experimentNumber = 1 }: { experimentNumber?: number }) {
+export function MethodDetail() {
   const [openId, setOpenId] = useState<TierId | null>("fitness");
   const popupRef = useRef<HTMLDivElement>(null);
 
@@ -105,9 +104,7 @@ export function MethodDetail({ experimentNumber = 1 }: { experimentNumber?: numb
         <strong className="font-medium text-slate-800">Bayesian comparison</strong> decides
         promote/kill with guardrails, and an{" "}
         <strong className="font-medium text-slate-800">LLM evaluator</strong> diagnoses copy for
-        the next breeding round. Before promoting a gen-0 winner, we also re-run the six starting
-        pages across multiple RNG seeds and report ranking stability below (sensitivity check only —
-        not the live experiment leaderboard). Select a tier for the full criteria.
+        the next breeding round. Select a tier for the full criteria.
       </p>
 
       {/* Horizontal tier selector — single row */}
@@ -185,8 +182,6 @@ export function MethodDetail({ experimentNumber = 1 }: { experimentNumber?: numb
           </div>
         )}
       </div>
-
-      <RobustnessDetail experimentNumber={experimentNumber} />
     </div>
   );
 }

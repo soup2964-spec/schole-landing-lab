@@ -10,7 +10,6 @@
     "experiment": "tsx scripts/run-experiment.ts",
     "migrate:supabase": "tsx scripts/migrate-to-supabase.ts",
     "reset:lab": "tsx scripts/reset-lab.ts",
-    "prepare:robustness": "tsx scripts/prepare-robustness.ts",
     "deploy:html": "tsx scripts/regenerate-variant-html.ts",
     "aa-test": "tsx scripts/aa-test.ts",
     "prepare:baseline": "tsx scripts/prepare-baseline-html.ts",

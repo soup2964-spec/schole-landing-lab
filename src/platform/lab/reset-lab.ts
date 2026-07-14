@@ -31,13 +31,6 @@ function clearLocalExperimentFiles() {
       if (f.endsWith(".json")) rmIfExists(path.join(expDir, f));
     }
   }
-
-  const robDir = path.join(process.cwd(), "data", "robustness");
-  if (fs.existsSync(robDir)) {
-    for (const f of fs.readdirSync(robDir)) {
-      if (f.endsWith(".json")) rmIfExists(path.join(robDir, f));
-    }
-  }
 }
 
 async function deleteRemoteExperimentDocs() {
@@ -46,7 +39,7 @@ async function deleteRemoteExperimentDocs() {
 
   const numbers = await listExperimentNumbers();
   const ids = [
-    ...numbers.flatMap((n) => [LAB_DOC.experiment(n), LAB_DOC.robustness(n)]),
+    ...numbers.map((n) => LAB_DOC.experiment(n)),
     LAB_DOC.ACTIVE_RUN,
   ];
   if (ids.length) {

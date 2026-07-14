@@ -1,5 +1,4 @@
 import { runExperiment, llmExperimentConfig } from "@/domains/evolve/run";
-import { refreshRobustnessSnapshot } from "@/domains/evolve/robustness-snapshot";
 import { GENERATION_0 } from "@/content/variants";
 import { promoteAndDeploy, type PromoteResult } from "@/domains/deploy/promote";
 import { writeAllVariantHtml } from "@/domains/deploy/write-html";
@@ -12,7 +11,7 @@ import {
   loadExperimentProgress,
 } from "./experiment-progress";
 import { isProgressActivelyRunning } from "./experiment-progress-utils";
-import { saveExperimentRun, saveExperimentRobustness } from "@/domains/experiments/store";
+import { saveExperimentRun } from "@/domains/experiments/store";
 import { sortBredVariants } from "@/domains/comparison/snapshots";
 import { invalidateLoopCache, loadLoopState, nextExperimentNumber, normalizeExperimentHistory, saveLoopState, type LoopState } from "./state";
 
@@ -78,8 +77,6 @@ export async function runManualExperiment(): Promise<ManualExperimentResult> {
     await saveExperimentRun(experimentNumber, run);
     invalidateRunCache();
     writeAllVariantHtml(run.variants, { includeLabBaseline: true });
-    const robustness = await refreshRobustnessSnapshot(run);
-    await saveExperimentRobustness(experimentNumber, robustness);
 
     const offspringIds =
       [...run.generations].reverse().find((g) => g.offspringIds?.length)?.offspringIds ?? [];
