@@ -1,6 +1,6 @@
 /**
- * Runs the full multi-generation experiment and writes data/run.json.
- * Usage: npm run experiment  (requires OPENAI_API_KEY in .env.local)
+ * Runs the multi-generation experiment and writes data/run.json.
+ * Usage: npm run experiment  (requires OPENAI_API_KEY or KIE_API_KEY for breeding)
  */
 import fs from "fs";
 import path from "path";

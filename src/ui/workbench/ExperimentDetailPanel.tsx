@@ -36,8 +36,6 @@ export function ExperimentDetailPanel({
   experimentNumber,
   bredVariants = [],
   judgmentsByVariant = {},
-  experimentMode = "hybrid",
-  llmPersonas = false,
 }: {
   activeView: WorkbenchView;
   run: ExperimentRun | null;
@@ -47,8 +45,6 @@ export function ExperimentDetailPanel({
   experimentNumber?: number;
   bredVariants?: PageVariant[];
   judgmentsByVariant?: Record<string, VariantJudgment>;
-  experimentMode?: "hybrid" | "full";
-  llmPersonas?: boolean;
 }) {
   const meta = CRITERIA.find((c) => c.id === VIEW_CRITERION[activeView]);
 
@@ -73,8 +69,6 @@ export function ExperimentDetailPanel({
           index={visitIndex}
           variants={variants}
           selectedVariantId={selectedVariantId}
-          experimentMode={experimentMode}
-          llmPersonas={llmPersonas}
         />
       )}
       {activeView === "winners" && (

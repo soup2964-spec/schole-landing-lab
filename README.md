@@ -2,7 +2,7 @@
 
 Autonomous landing page evolution for [Scholé AI](https://schole.ai/).
 
-LLM-powered persona agents simulate user behavior on landing page variants. A Thompson-sampling bandit allocates traffic, an evaluator agent scores results, and an optimizer agent breeds improved pages — generation after generation — with evidence-backed changelogs.
+LLM-powered optimizer breeds landing page variants. Heuristic buyer personas simulate user behavior; a Thompson-sampling bandit allocates traffic and evidence-backed changelogs explain each generation.
 
 **Live repo:** https://github.com/soup2964-spec/OLebot
 
@@ -39,7 +39,7 @@ Dependency rule: `app → ui → lab → shared` (and `lab` reads `config`).
 
 | Surface | What it covers |
 |---------|----------------|
-| **Control** (`/`) | Run experiments, autonomous / LLM toggles |
+| **Control** (`/`) | Run experiments, autonomous mode |
 | **Versions** | Gen-0 + bred page comparison |
 | **Method / Personas / Behavior / Winners** | Side-menu detail panels on `/` |
 | **Live** (`/live`) | Live loop + calibration |
@@ -55,12 +55,12 @@ cp .env.example .env.local   # set KIE_API_KEY or OPENAI_API_KEY for experiments
 npm run dev                  # open http://localhost:3000
 ```
 
-Run an experiment from the **Control** tab (hybrid ~2–5 min, full LLM ~20 min).
+Run an experiment from the **Control** tab (~2–5 min: heuristic personas + LLM breeding).
 
-### Full LLM experiment (optional)
+### CLI experiment
 
 ```bash
-npm run experiment  # ~30-60 min, writes data/run.json with LLM readings
+npm run experiment  # multi-generation run, writes data/run.json
 ```
 
 ## Architecture
@@ -68,7 +68,7 @@ npm run experiment  # ~30-60 min, writes data/run.json with LLM readings
 ```
 Generation 0 variants (JSON in src/config/variants.ts)
         ↓
-Persona agents (objection-gated conversion)
+Persona agents (heuristic readings, objection-gated conversion)
         ↓
 Monte Carlo visits + Thompson bandit
         ↓
@@ -88,7 +88,7 @@ Generation N+1 … → HTML replicas under public/baseline/
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start Next.js (runs `prepare:pages` first) |
-| `npm run experiment` | Full LLM multi-generation run (CLI) |
+| `npm run experiment` | Multi-generation run (CLI) |
 | `npm run reset:lab` | Wipe experiment history and bred pages |
 | `npm run prepare:variants` | Rebuild Gen-0 HTML after copy edits |
 | `npm run build` | Production build |

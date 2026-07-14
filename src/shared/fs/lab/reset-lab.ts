@@ -63,7 +63,7 @@ export async function resetLabState(): Promise<ResetLabResult> {
 
   await saveLoopState({
     autonomous: loop.autonomous,
-    llmPersonas: loop.llmPersonas,
+    llmPersonas: false,
     runVersion: loop.runVersion,
     lastSyncAt: null,
     lastVisitorCount: 0,

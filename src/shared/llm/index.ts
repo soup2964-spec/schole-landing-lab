@@ -18,9 +18,7 @@ export type ChatJSONOptions = {
   /**
    * Override which provider handles this call. Falls back to the default
    * provider (llmProvider()) if the requested one isn't configured (e.g. no
-   * OPENAI_API_KEY set). Use readerProvider()/breederProvider() to keep the
-   * agent that judges copy separate from the one that writes it — otherwise
-   * a model can end up rating its own stylistic preferences as persuasive.
+   * OPENAI_API_KEY set). Use breederProvider() when breeding copy.
    */
   provider?: LLMProvider;
 };
@@ -52,11 +50,6 @@ function activeProvider(explicit?: LLMProvider): LLMProvider {
   if (process.env.KIE_API_KEY) return "kie";
   if (explicit && isProviderConfigured(explicit)) return explicit;
   return llmProvider();
-}
-
-/** Provider used to LLM-read pages as a persona. */
-export function readerProvider(): LLMProvider {
-  return activeProvider(envProvider("LLM_READER_PROVIDER"));
 }
 
 /** Provider used to breed new page copy. */

@@ -132,10 +132,8 @@ export async function resetExperimentProgress() {
   await setLabDocument(LAB_DOC.EXPERIMENT_PROGRESS, { ...IDLE });
 }
 
-function stageWeights(mode: ExperimentMode) {
-  if (mode === "full") {
-    return { readings: 0.72, simulating: 0.03, evaluating: 0.1, breeding: 0.15 };
-  }
+/** Hybrid-only weights: cheap heuristic readings, LLM time spent on breeding. */
+function stageWeights() {
   return { readings: 0.08, simulating: 0.07, evaluating: 0.25, breeding: 0.6 };
 }
 
@@ -179,14 +177,15 @@ export class ExperimentProgressReporter {
   }
 
   readingsStart(total: number) {
-    const w = stageWeights(this.mode);
+    const w = stageWeights();
     this.stageSpan = this.genSpan * w.readings;
     this.stage = "readings";
-    const label =
-      this.mode === "full"
-        ? `LLM persona readings (${total})`
-        : `Heuristic persona readings (${total})`;
-    this.publish("readings", this.stageBase, label, "0% complete");
+    this.publish(
+      "readings",
+      this.stageBase,
+      `Heuristic persona readings (${total})`,
+      "0% complete"
+    );
   }
 
   readingsProgress(done: number, total: number) {
@@ -194,7 +193,7 @@ export class ExperimentProgressReporter {
     this.publish(
       "readings",
       this.stageBase + this.stageSpan * frac,
-      this.mode === "full" ? "LLM persona readings" : "Heuristic persona readings",
+      "Heuristic persona readings",
       `${done} / ${total}`
     );
   }
@@ -204,7 +203,7 @@ export class ExperimentProgressReporter {
   }
 
   simulating() {
-    const w = stageWeights(this.mode);
+    const w = stageWeights();
     this.stage = "simulating";
     this.stageBase += this.stageSpan;
     this.stageSpan = this.genSpan * w.simulating;
@@ -217,7 +216,7 @@ export class ExperimentProgressReporter {
   }
 
   evaluating() {
-    const w = stageWeights(this.mode);
+    const w = stageWeights();
     this.stageBase += this.stageSpan;
     this.stageSpan = this.genSpan * w.evaluating;
     this.stage = "evaluating";
@@ -230,7 +229,7 @@ export class ExperimentProgressReporter {
   }
 
   breedingStart(total: number) {
-    const w = stageWeights(this.mode);
+    const w = stageWeights();
     this.stageBase += this.stageSpan;
     this.stageSpan = this.genSpan * w.breeding;
     this.stage = "breeding";

@@ -109,8 +109,6 @@ export function ExperimentWorkbench({
                 (data.isRunning || data.progress?.status === "error") &&
                 data.iteration === data.progressExperiment
               }
-              experimentMode={data.experimentMode}
-              llmPersonas={data.llmPersonas}
             />
           </div>
         ) : (
@@ -125,8 +123,6 @@ export function ExperimentWorkbench({
               experimentNumber={data.iteration}
               bredVariants={data.currentVariants}
               judgmentsByVariant={data.judgmentsByVariant}
-              experimentMode={data.experimentMode}
-              llmPersonas={data.llmPersonas}
             />
           </div>
         )}

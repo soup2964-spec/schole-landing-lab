@@ -73,8 +73,6 @@ export function PageComparisonView({
   selectedVariantId,
   onSelectVariant,
   isRunning,
-  experimentMode = "hybrid",
-  llmPersonas = false,
 }: {
   experimentNumber: number;
   previousVariants: PageVariant[];
@@ -82,14 +80,9 @@ export function PageComparisonView({
   selectedVariantId?: string | null;
   onSelectVariant?: (variantId: string) => void;
   isRunning?: boolean;
-  experimentMode?: "hybrid" | "full";
-  llmPersonas?: boolean;
 }) {
   const previousNumber = Math.max(1, experimentNumber - 1);
-  const modeLabel =
-    experimentMode === "full" || llmPersonas
-      ? "LLM persona readings"
-      : "Heuristic persona readings";
+  const modeLabel = "Heuristic persona readings";
 
   return (
     <div className="space-y-6">

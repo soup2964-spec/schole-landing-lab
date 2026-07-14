@@ -16,11 +16,11 @@ export async function GET() {
   const state = await loadLoopState();
   return NextResponse.json({
     autonomous: isAutonomousMode(state),
-    llmPersonas: Boolean(state.llmPersonas),
+    llmPersonas: false,
     runVersion: state.runVersion,
     lastRunId: state.lastRunId,
     lastSyncAt: state.lastSyncAt,
-    experimentMode: manualExperimentMode(state),
+    experimentMode: manualExperimentMode(),
     llmExperimentAvailable: isLlmExperimentAvailable(),
     llmProvider: llmExperimentProviderLabel(),
   });
@@ -29,12 +29,11 @@ export async function GET() {
 export async function PATCH(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
     autonomous?: boolean;
-    llmPersonas?: boolean;
   };
 
-  if (typeof body.autonomous !== "boolean" && typeof body.llmPersonas !== "boolean") {
+  if (typeof body.autonomous !== "boolean") {
     return NextResponse.json(
-      { error: "Provide autonomous and/or llmPersonas (boolean)" },
+      { error: "Provide autonomous (boolean)" },
       { status: 400 }
     );
   }
@@ -42,15 +41,15 @@ export async function PATCH(request: Request) {
   const state = await loadLoopState();
   const next = {
     ...state,
-    ...(typeof body.autonomous === "boolean" ? { autonomous: body.autonomous } : {}),
-    ...(typeof body.llmPersonas === "boolean" ? { llmPersonas: body.llmPersonas } : {}),
+    autonomous: body.autonomous,
+    llmPersonas: false,
   };
   await saveLoopState(next);
 
   return NextResponse.json({
     autonomous: next.autonomous,
-    llmPersonas: next.llmPersonas,
-    experimentMode: manualExperimentMode(next),
+    llmPersonas: false,
+    experimentMode: manualExperimentMode(),
   });
 }
 
@@ -83,7 +82,7 @@ export async function POST() {
     {
       ok: true,
       started: true,
-      experimentMode: manualExperimentMode(state),
+      experimentMode: manualExperimentMode(),
       llmProvider: llmExperimentProviderLabel(),
     },
     { status: 202 }

@@ -9,7 +9,6 @@ import { ControlToggle } from "@/ui/workbench/ControlToggle";
 
 interface ControlState {
   autonomous: boolean;
-  llmPersonas: boolean;
   runVersion: number;
   lastRunId: string | null;
   experimentMode?: "hybrid" | "full";
@@ -30,7 +29,6 @@ export function ControlCenterView({
   onDismissProgress?: () => void;
   onSettingsChange?: (settings: {
     autonomous: boolean;
-    llmPersonas: boolean;
     experimentMode: "hybrid" | "full";
   }) => void;
 }) {
@@ -50,7 +48,6 @@ export function ControlCenterView({
       setState(data);
       onSettingsChange?.({
         autonomous: Boolean(data.autonomous),
-        llmPersonas: Boolean(data.llmPersonas),
         experimentMode: data.experimentMode ?? "hybrid",
       });
       if (data.autonomous) setLiveActive(true);
@@ -64,7 +61,6 @@ export function ControlCenterView({
   const defaultControl = useCallback(
     (): ControlState => ({
       autonomous: false,
-      llmPersonas: false,
       runVersion: 0,
       lastRunId: null,
       experimentMode: "hybrid",
@@ -85,7 +81,7 @@ export function ControlCenterView({
     }
   }, [progress]);
 
-  const patchControl = async (patch: Partial<Pick<ControlState, "autonomous" | "llmPersonas">>) => {
+  const patchControl = async (patch: Partial<Pick<ControlState, "autonomous">>) => {
     setError(null);
     setMessage(null);
 
@@ -108,12 +104,10 @@ export function ControlCenterView({
         const next = {
           ...base,
           autonomous: body.autonomous ?? base.autonomous,
-          llmPersonas: body.llmPersonas ?? base.llmPersonas,
           experimentMode: body.experimentMode ?? base.experimentMode,
         };
         onSettingsChange?.({
           autonomous: next.autonomous,
-          llmPersonas: next.llmPersonas,
           experimentMode: next.experimentMode ?? "hybrid",
         });
         return next;
@@ -134,12 +128,8 @@ export function ControlCenterView({
   const runExperiment = async () => {
     setRunning(true);
     setError(null);
-
-    const llmMode = state?.llmPersonas ?? false;
     setMessage(
-      llmMode
-        ? "LLM personas are reading pages, then the optimizer breeds six angled variants."
-        : "Heuristic traffic simulation, behavior report, then optimizer breeds six angled variants."
+      "Heuristic traffic simulation, behavior report, then optimizer breeds six angled variants."
     );
 
     try {
@@ -158,13 +148,8 @@ export function ControlCenterView({
 
       await pollProgress();
 
-      const modeLabel =
-        body.experimentMode === "full"
-          ? `full LLM (${body.llmProvider ?? "api"})`
-          : `hybrid (${body.llmProvider ?? "api"})`;
-
       setMessage(
-        `Experiment ${body.experimentNumber} complete (${modeLabel}): ${body.totalVisits?.toLocaleString?.() ?? body.totalVisits} simulated visits, ${body.offspringCount} new page${body.offspringCount === 1 ? "" : "s"} bred.`
+        `Experiment ${body.experimentNumber} complete (hybrid, ${body.llmProvider ?? "api"}): ${body.totalVisits?.toLocaleString?.() ?? body.totalVisits} simulated visits, ${body.offspringCount} new page${body.offspringCount === 1 ? "" : "s"} bred.`
       );
       await refresh();
       onExperimentComplete?.();
@@ -183,7 +168,6 @@ export function ControlCenterView({
   };
 
   const autonomous = state?.autonomous ?? false;
-  const llmPersonas = state?.llmPersonas ?? false;
   const llmAvailable = state?.llmExperimentAvailable ?? false;
   const progressRunning = isProgressActivelyRunning(progress);
   const runBlocked = running || progressRunning || (!autonomous && !llmAvailable);
@@ -215,22 +199,6 @@ export function ControlCenterView({
             />
           </div>
 
-          <div className="border-t border-slate-100 pt-6 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">LLM personas</p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                {llmPersonas
-                  ? "Each persona reads pages via LLM — richest signal, slowest (~20 min)."
-                  : "Heuristic persona readings + simulated traffic, then optimizer breeds six angled pages (~2–5 min)."}
-              </p>
-            </div>
-            <ControlToggle
-              checked={llmPersonas}
-              label="LLM personas"
-              onChange={(llmPersonas) => patchControl({ llmPersonas })}
-            />
-          </div>
-
           <div className="border-t border-slate-100 pt-6">
             <button
               type="button"
@@ -239,9 +207,7 @@ export function ControlCenterView({
               className="w-full rounded-xl bg-schole-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-schole-primary-hover disabled:opacity-50"
             >
               {running || progressRunning
-                ? llmPersonas
-                  ? "Running LLM experiment…"
-                  : "Running experiment…"
+                ? "Running experiment…"
                 : autonomous
                   ? "Live"
                   : "Run experiment"}
@@ -249,9 +215,7 @@ export function ControlCenterView({
             <p className="mt-3 text-center text-xs text-slate-500">
               {autonomous
                 ? "Real visitors on variant pages feed the loop. Click Live to confirm status and share pages for people to run."
-                : llmPersonas
-                  ? "LLM personas read each page, traffic is simulated, a behavior report is built, and the optimizer breeds six distinct landing pages."
-                  : "Simulated user behavior drives a behavior report; the optimizer then breeds six distinct pages (one per base angle)."}
+                : "Simulated buyer personas drive a behavior report; the optimizer then breeds six distinct pages (one per base angle)."}
             </p>
             {progress?.status === "error" && onDismissProgress && (
               <button
@@ -264,7 +228,7 @@ export function ControlCenterView({
             )}
             {!autonomous && !llmAvailable && !loading && (
               <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                Evaluator and optimizer need an API key — add{" "}
+                Optimizer needs an API key — add{" "}
                 <code className="font-mono">KIE_API_KEY</code> or{" "}
                 <code className="font-mono">OPENAI_API_KEY</code> to{" "}
                 <code className="font-mono">.env.local</code> and restart the dev server.

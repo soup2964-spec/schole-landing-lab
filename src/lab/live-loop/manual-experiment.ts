@@ -13,7 +13,7 @@ import {
 import { isProgressActivelyRunning } from "./experiment-progress-utils";
 import { saveExperimentRun } from "@/lab/experiments/store";
 import { sortBredVariants } from "@/lab/comparison/snapshots";
-import { invalidateLoopCache, loadLoopState, nextExperimentNumber, normalizeExperimentHistory, saveLoopState, type LoopState } from "./state";
+import { invalidateLoopCache, loadLoopState, nextExperimentNumber, normalizeExperimentHistory, saveLoopState } from "./state";
 
 export type { ExperimentMode };
 
@@ -29,13 +29,14 @@ export interface ManualExperimentResult {
   deploy: PromoteResult;
 }
 
-export function manualExperimentMode(state: LoopState): ExperimentMode {
-  return state.llmPersonas ? "full" : "hybrid";
+/** Experiments always use heuristic persona readings + LLM breeding. */
+export function manualExperimentMode(): ExperimentMode {
+  return "hybrid";
 }
 
 export async function runManualExperiment(): Promise<ManualExperimentResult> {
   const loopState = await loadLoopState();
-  const mode = manualExperimentMode(loopState);
+  const mode = manualExperimentMode();
 
   if (!isLlmConfigured()) {
     throw new Error(
@@ -67,7 +68,6 @@ export async function runManualExperiment(): Promise<ManualExperimentResult> {
     const run = await runExperiment({
       ...llmExperimentConfig(seed, (msg) => console.log(`[experiment] ${msg}`)),
       generations,
-      personaReadingMode: mode === "full" ? "llm" : "heuristic",
       initialPool: previousPool?.length ? previousPool : undefined,
       progress,
     });
@@ -102,13 +102,14 @@ export async function runManualExperiment(): Promise<ManualExperimentResult> {
 
     const next = {
       ...loopStateAfter,
+      llmPersonas: false,
       lastSyncAt: new Date().toISOString(),
       lastRunId: run.id,
       syncHistory: [
         {
           at: new Date().toISOString(),
           visitors: 0,
-          reason: mode === "full" ? "manual-llm-experiment" : "manual-hybrid-experiment",
+          reason: "manual-hybrid-experiment",
         },
         ...loopStateAfter.syncHistory.slice(0, 19),
       ],

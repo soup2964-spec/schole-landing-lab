@@ -28,8 +28,8 @@ export interface ArmCounts {
   visits: number;
   bounceRate: number;
   /**
-   * Number of independent judgments (LLM persona readings, or heuristic
-   * readings) backing this arm's visit count. When provided, the posterior
+   * Number of independent judgments (heuristic persona readings)
+   * backing this arm's visit count. When provided, the posterior
    * is capped so it can't be more confident than that independent evidence
    * justifies (see EVIDENCE_VISITS_PER_READING). Omit to fall back to the
    * old (overconfident) behavior of trusting the raw visit count.

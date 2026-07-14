@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Landing Lab · Autonomous landing page evolution for Scholé AI",
   description:
-    "LLM persona agents simulate user behavior, a bandit compares landing page variants, and optimizer agents breed improved pages with evidence-backed changelogs.",
+    "Heuristic buyer personas simulate user behavior, a bandit compares landing page variants, and an LLM optimizer breeds improved pages with evidence-backed changelogs.",
 };
 
 export default function RootLayout({

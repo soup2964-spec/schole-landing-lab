@@ -85,7 +85,6 @@ export function useWorkbenchData({
   const [progress, setProgress] = useState<ExperimentProgress | null>(null);
   const [iteration, setIteration] = useState(1);
   const [experimentMode, setExperimentMode] = useState<"hybrid" | "full">("hybrid");
-  const [llmPersonas, setLlmPersonas] = useState(false);
 
   const isRunning = isProgressActivelyRunning(progress);
   const activeProgressExperiment =
@@ -161,8 +160,7 @@ export function useWorkbenchData({
   }, []);
 
   const handleSettingsChange = useCallback(
-    (settings: { autonomous: boolean; llmPersonas: boolean; experimentMode: "hybrid" | "full" }) => {
-      setLlmPersonas(settings.llmPersonas);
+    (settings: { autonomous: boolean; experimentMode: "hybrid" | "full" }) => {
       setExperimentMode(settings.experimentMode);
     },
     []
@@ -206,7 +204,6 @@ export function useWorkbenchData({
         if (!data) return;
         handleSettingsChange({
           autonomous: Boolean(data.autonomous),
-          llmPersonas: Boolean(data.llmPersonas),
           experimentMode: data.experimentMode ?? "hybrid",
         });
       })
@@ -286,7 +283,6 @@ export function useWorkbenchData({
     progress,
     iteration,
     experimentMode,
-    llmPersonas,
     isRunning,
     experimentOptions,
     partialExperimentNumbers,

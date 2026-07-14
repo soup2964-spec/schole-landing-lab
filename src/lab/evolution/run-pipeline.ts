@@ -122,10 +122,6 @@ async function breedDistinctOffspring(
   return last!;
 }
 
-export function readConcurrency(): number {
-  return Number(process.env.LLM_READ_CONCURRENCY ?? 6);
-}
-
 function breedConcurrency(): number {
   return Number(process.env.LLM_BREED_CONCURRENCY ?? 6);
 }
